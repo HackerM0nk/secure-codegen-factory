@@ -160,6 +160,32 @@ if command -v ollama >/dev/null 2>&1; then
     ollama pull "$OLLAMA_MODEL" 2>&1 | tail -1
     ok "Model $OLLAMA_MODEL pulled"
   fi
+
+  # ── Uncensored model for security stress-testing ──────────────────────────
+  # dolphin-mistral has no safety guardrails — it will comply with any request.
+  # This is the point: prove that the security stack catches everything regardless
+  # of what the model generates. Used by `npm run test:security:regression`.
+  UNCENSORED_MODEL="${UNCENSORED_MODEL:-dolphin-mistral:7b}"
+  if [ -t 0 ]; then
+    echo ""
+    log "Optional: pull an uncensored model for security stress-testing?"
+    echo "    dolphin-mistral:7b has zero safety guardrails — it will generate"
+    echo "    reverse shells, malware, prompt injections, anything you ask."
+    echo "    The security stack should catch 100% of it."
+    echo ""
+    read -rp "  Pull $UNCENSORED_MODEL for attack testing? [y/N]: " PULL_UNCENSORED
+    if [ "${PULL_UNCENSORED,,}" = "y" ]; then
+      if ollama list 2>/dev/null | grep -q "$UNCENSORED_MODEL"; then
+        ok "Uncensored model $UNCENSORED_MODEL already available"
+      else
+        log "Pulling $UNCENSORED_MODEL..."
+        ollama pull "$UNCENSORED_MODEL" 2>&1 | tail -1
+        ok "Uncensored model $UNCENSORED_MODEL pulled"
+      fi
+    else
+      warn "Skipped uncensored model — you can pull it later: ollama pull $UNCENSORED_MODEL"
+    fi
+  fi
 else
   warn "Ollama not found — install from https://ollama.com"
   warn "Without an LLM provider, the agent loop won't work."
@@ -412,10 +438,17 @@ if [ "$K8S_MODE" = true ]; then
   echo -e "  ${BOLD}Security${NC}       Cilium + Tetragon + OPA Gatekeeper + PSA:restricted"
 fi
 echo ""
+echo -e "  ${BOLD}LLM Model${NC}      $OLLAMA_MODEL"
+echo ""
 echo -e "  ${BOLD}Run tests:${NC}"
 echo -e "    npm test                          # 262 unit tests"
 echo -e "    npm run test:security:regression  # 48-vector attack suite"
 echo -e "    npm run test:validate             # 37-check E2E harness"
+echo ""
+echo -e "  ${BOLD}Security stress-test (with uncensored model):${NC}"
+echo -e "    ollama pull dolphin-mistral:7b    # zero safety guardrails"
+echo -e "    npm run test:security:regression -- --model=dolphin-mistral:7b"
+echo -e "    # ^ proves the security stack catches everything the model generates"
 echo ""
 echo -e "  ${BOLD}Stop:${NC} kill $SERVER_PID ${FRONTEND_PID:-}; $DC down"
 echo ""
