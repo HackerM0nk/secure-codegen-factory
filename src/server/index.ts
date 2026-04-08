@@ -103,7 +103,12 @@ app.use((req: express.Request, res: express.Response) => {
 });
 
 // Error handler
-app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+app.use((err: any, req: express.Request, res: express.Response, _next: express.NextFunction) => {
+  // JSON parse errors from express.json() middleware
+  if (err.type === "entity.parse.failed" || (err instanceof SyntaxError && "body" in err)) {
+    res.status(400).json({ error: "Invalid JSON in request body", correlationId: req.correlationId });
+    return;
+  }
   logger.error({ err, correlationId: req.correlationId }, "Unhandled error");
   res.status(500).json({ error: "Internal server error", correlationId: req.correlationId });
 });

@@ -26,6 +26,8 @@
     "test:security:model-regression": "npx tsx tests/e2e-security/model-regression.ts",
     "test:security:pipeline": "npx tsx tests/e2e-security/full-pipeline-test.ts",
     "test:security:pipeline:report": "npx tsx tests/e2e-security/full-pipeline-test.ts --report",
+    "test:validate": "npx tsx tests/e2e-validation/validate.ts",
+    "test:validate:quick": "npx tsx tests/e2e-validation/validate.ts --skip-workspace --skip-agent",
     "k8s:setup": "bash k8s/setup.sh",
     "infra:up": "docker compose up -d",
     "infra:down": "docker compose down"

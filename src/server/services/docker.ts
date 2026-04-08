@@ -179,6 +179,7 @@ export async function createWorkspace(projectId: string): Promise<WorkspaceInfo>
       [`traefik.http.routers.${containerName}-term.priority`]: "100",
       [`traefik.http.routers.${containerName}-term.middlewares`]: `${containerName}-strip-ttyd`,
       [`traefik.http.middlewares.${containerName}-strip-ttyd.stripprefix.prefixes`]: "/ttyd",
+      [`traefik.http.middlewares.${containerName}-strip-ttyd.stripprefix.forceslash`]: "false",
       [`traefik.http.services.${containerName}-term.loadbalancer.server.port`]: "8080",
       // Metadata
       "devfactory-v2.project-id": projectId,
@@ -291,8 +292,13 @@ export async function writeFileToWorkspace(
   }
 
   // Use tar-stream to write file via Docker putArchive API
+  const isExecutable =
+    /\.(sh|py|rb|pl)$/.test(filePath) || content.startsWith("#!");
   const pack = tar.pack();
-  pack.entry({ name: filePath.startsWith("/") ? filePath.slice(1) : filePath }, content);
+  pack.entry(
+    { name: filePath.startsWith("/") ? filePath.slice(1) : filePath, mode: isExecutable ? 0o755 : 0o644 },
+    content
+  );
   pack.finalize();
 
   await container.putArchive(pack, { path: "/" });
