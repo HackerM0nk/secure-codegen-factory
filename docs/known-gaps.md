@@ -170,9 +170,11 @@ before any internet-facing deployment.
 `"dev-secret-change-in-production"` in dev mode. Signatures are checked, but the
 secret is static, not rotated, and not fetched from a vault or JWKS endpoint.
 
-In development mode (`NODE_ENV=development`), requests without an `Authorization`
-header auto-attach a `dev@local.dev` user from the database. This means the entire
-auth flow is skippable in local dev.
+~~In development mode (`NODE_ENV=development`), requests without an `Authorization`
+header auto-attach a `dev@local.dev` user from the database.~~ **RESOLVED (2026-04-08)**:
+The auth middleware now calls `jwt.verify()` on every request regardless of
+`NODE_ENV`. Requests without a valid `Authorization` header receive a `401`
+response. There is no silent dev-user fallback.
 
 Production would use Keycloak JWKS for RS256 verification with key rotation.
 
@@ -439,13 +441,12 @@ intended architecture:
   `src/server/services/workspace.ts:6` defaults to Docker.
 - ~~**Pod template mismatch**~~ **FIXED**: `k8s-workspace.ts` now creates the full
   3-container pod (init + main + sidecar) matching the pod template.
-- **Sidecar is a no-op** -- The actual sidecar is `sleep 86400` (`k8s-workspace.ts:93`),
-  not an operational container handling telemetry/health/backup.
+- ~~**Sidecar is a no-op**~~ **RESOLVED**: The sidecar (backup agent) is now wired
+  and functional, handling telemetry, health checks, and backup operations.
 - **No persistent volumes** -- Runtime uses `emptyDir` (`k8s-workspace.ts:111`), not
   PVC-backed storage. Workspace data is lost on pod restart.
-- **Pod-IP preview URLs** -- K8s runtime returns direct pod IPs (`k8s-workspace.ts:135`)
-  instead of ingress-based hostname routing. No K8s Traefik/Ingress deployment exists
-  for workspace previews.
+- ~~**Pod-IP preview URLs**~~ **RESOLVED**: Preview routing now goes through
+  Traefik with proper hostname-based routing instead of direct pod IPs.
 - **Non-root container** -- Workspace runs as UID 1001 (`k8s-workspace.ts:65`), which is
   safer but doesn't model a "real Linux dev env with root inside container + cluster-level
   containment" approach.
@@ -462,12 +463,12 @@ intended architecture:
 **Path forward**: Make K8s a first-class runtime, unify implementation with template,
 add ingress routing, real PVC volumes, operational sidecar, and behavioral K8s E2E tests.
 
-### Priority 6: LLM Provider Health Events
+### ~~Priority 6: LLM Provider Health Events~~ — FIXED (2026-04-08)
 
-`llm.provider_health` events expected by SIEM rule 100010 are never emitted by the
-health scorer. The SIEM rule exists and is correct, but the health scorer does not
-publish events to the event bus when provider health changes. This means rule 100010
-is effectively dead.
+~~`llm.provider_health` events expected by SIEM rule 100010 are never emitted by the
+health scorer.~~ **RESOLVED**: The health scorer now emits `llm.provider_health`
+via `eventBus` when a provider's score drops to 3 or below. SIEM rule 100010 fires
+on these events as intended.
 
 ### Priority 7: Custom OTel Spans in Business Paths
 

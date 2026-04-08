@@ -9,8 +9,10 @@ import {
   getWorkspaceStatus,
   checkContainerHealth,
   getTerminalCredentials,
+  saveSnapshot,
+  restoreSnapshot,
 } from "../services/workspace";
-import { saveSnapshot, restoreSnapshot } from "../services/snapshot";
+import { runPreviewGate } from "../deploy/pre-deploy-gate";
 import {
   checkConcurrentLimit,
   trackWorkspace,
@@ -110,13 +112,31 @@ router.post("/", async (req: Request, res: Response) => {
       }
     }
 
+    // Run preview gate on restored snapshots before exposing preview URL.
+    // Fresh workspaces (no snapshot) skip this — there's no code to scan yet.
+    let previewUrl: string | null = info.previewUrl;
+    if (project.snapshotKey) {
+      try {
+        const gate = await runPreviewGate(info.containerName);
+        if (!gate.passed) {
+          logger.warn(
+            { projectId, blockReasons: gate.blockReasons },
+            "Preview gate blocked — preview URL withheld until code is safe"
+          );
+          previewUrl = null;
+        }
+      } catch (e: any) {
+        logger.warn({ projectId, error: e.message }, "Preview gate check failed — allowing preview");
+      }
+    }
+
     // Update project with container info
     await prisma.project.update({
       where: { id: projectId },
       data: {
         containerId: info.containerId,
         containerName: info.containerName,
-        previewUrl: info.previewUrl,
+        previewUrl,
         status: "running",
       },
     });
@@ -132,7 +152,7 @@ router.post("/", async (req: Request, res: Response) => {
     }
 
     logger.info({ projectId, containerName: info.containerName }, "Workspace started");
-    res.status(201).json(info);
+    res.status(201).json({ ...info, previewUrl });
   } catch (err: any) {
     logger.error({ projectId, error: err.message }, "Workspace creation failed");
 

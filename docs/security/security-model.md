@@ -446,7 +446,7 @@ These controls execute in the runtime path and have been verified through E2E te
    triggering any code scanning.
 
 2. **Network isolation between workspaces**: All workspace containers share the
-   same Docker network (`ai-dev-factory-v2_devfactory-v2`). Container A can
+   same Docker network (`devfactory-net`). Container A can
    reach container B via direct IP. There is no network policy enforcement in
    Docker mode. The K8s backend (`k8s-workspace.ts`) has NetworkPolicy
    definitions but is not the default runtime.
@@ -457,20 +457,21 @@ These controls execute in the runtime path and have been verified through E2E te
    determined attacker can craft HTTP-based exfiltration that bypasses command
    pattern matching.
 
-4. **Rate limiting on security and deploy routes**: `/api/security` and
-   `/api/deploy` routes have `authMiddleware()` but no `rateLimiter()` (compare
-   `index.ts:82-83` vs `index.ts:77-79`). The security test endpoints accept
-   arbitrary input and could be used for reconnaissance without rate limits.
+4. ~~**Rate limiting on security and deploy routes**~~: **FIXED.** Both
+   `/api/security` and `/api/deploy` now have `rateLimiter()` middleware
+   (`index.ts:82-83`), matching the protection on project/workspace/agent
+   routes.
 
 5. **Deployed container security hardening**: The deployed container
    (`deployer.ts:84-99`) has memory and CPU limits but is missing
    `SecurityOpt: ["no-new-privileges"]`, `ReadonlyRootfs`, capability dropping,
    and PID limits that the workspace container has.
 
-6. **Deploy route ownership verification**: `POST /api/deploy/:projectId`
-   (`routes/deploy.ts:9-16`) calls `deployProject()` with `req.user!.id` but
-   does not verify that the user owns the project before deploying. Any
-   authenticated user could trigger a deployment for any project ID.
+6. ~~**Deploy route ownership verification**~~: **FIXED.** `routes/deploy.ts`
+   now calls `verifyProjectOwnership(projectId, req.user!.orgId)` via
+   `prisma.project.findFirst({ where: { id, orgId } })` before every deploy
+   and deployment-list operation. Unauthenticated or cross-org requests get a
+   404.
 
 7. **Prometheus security metrics**: No dedicated counters for
    `security_inputs_blocked_total`, `security_commands_blocked_total`,
