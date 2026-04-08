@@ -13,7 +13,7 @@ Defense-in-depth controls wrapping untrusted LLMs in sandboxed workspaces
 [![Prometheus](https://img.shields.io/badge/Prometheus-E6522C?logo=prometheus&logoColor=fff)](#observability)
 [![Grafana](https://img.shields.io/badge/Grafana-F46800?logo=grafana&logoColor=fff)](#observability)
 
-[Quick Start](#quick-start) &bull; [Architecture](#architecture) &bull; [Security Layers](#the-16-security-layers) &bull; [K8s Controls](#kubernetes-security-controls) &bull; [Observability](#observability) &bull; [Testing](#testing) &bull; [Contributing](CONTRIBUTING.md)
+[Quick Start](#quick-start) &bull; [Architecture](#architecture) &bull; [Security Layers](#security-layers) &bull; [K8s Controls](#kubernetes-security-controls) &bull; [Observability](#observability) &bull; [Testing](#testing) &bull; [Contributing](CONTRIBUTING.md)
 
 </div>
 
@@ -21,72 +21,9 @@ Defense-in-depth controls wrapping untrusted LLMs in sandboxed workspaces
 
 Users describe an app in natural language. An AI agent builds it in an isolated container with live preview, code editor, and terminal. Every stage — input, inference, code generation, tool execution, deployment — is wrapped by independent security controls that **assume the model is adversarial**.
 
-```mermaid
-flowchart LR
-    UP((User<br/>Prompt)) --> PRE
-
-    subgraph PRE["Pre-LLM Gate"]
-        direction TB
-        FW["Input Firewall"]
-        INJ["Injection Detector"]
-        INT["Intent Classifier"]
-        SEC["Secret Detector"]
-        SP["System Prompt Hardening"]
-    end
-
-    PRE --> LLM
-
-    subgraph LLM["LLM Agent"]
-        direction TB
-        ROUTER["Multi-Provider Router"]
-        TRAJ["Trajectory Monitor"]
-        BEH["Behavioral Detector"]
-    end
-
-    LLM --> POST
-
-    subgraph POST["Post-LLM Gate"]
-        direction TB
-        OF["Output Filter"]
-        PF["Package Filter"]
-        SAST["SAST Scanner"]
-        SCA["SCA + SBOM"]
-        SECR["Secret Scanner"]
-    end
-
-    POST --> WS
-
-    subgraph WS["Sandboxed Workspace"]
-        direction TB
-        DOCK["Docker / K8s"]
-        EBPF["Tetragon eBPF"]
-        CIL["Cilium Network"]
-        GATE["Gatekeeper"]
-    end
-
-    WS --> OBS
-
-    subgraph OBS["Detection"]
-        direction TB
-        SIEM["SIEM Engine"]
-        CORR["Runtime Correlator"]
-        ALERT["AlertManager"]
-    end
-
-    classDef preLLM fill:#dc2626,stroke:#991b1b,color:#fff
-    classDef llmNode fill:#7c3aed,stroke:#6d28d9,color:#fff
-    classDef postLLM fill:#ea580c,stroke:#c2410c,color:#fff
-    classDef sandbox fill:#2563eb,stroke:#1d4ed8,color:#fff
-    classDef detect fill:#059669,stroke:#047857,color:#fff
-    classDef user fill:#1e293b,stroke:#475569,color:#e2e8f0
-
-    class FW,INJ,INT,SEC,SP preLLM
-    class ROUTER,TRAJ,BEH llmNode
-    class OF,PF,SAST,SCA,SECR postLLM
-    class DOCK,EBPF,CIL,GATE sandbox
-    class SIEM,CORR,ALERT detect
-    class UP user
-```
+<a href="docs/diagrams/hero-pipeline-animated.svg">
+  <img src="docs/diagrams/hero-pipeline-animated.svg" alt="Defense-in-Depth Security Pipeline" width="100%"/>
+</a>
 
 ## Why This Exists
 
@@ -106,118 +43,13 @@ Security doesn't rely on model safety training. The same controls work whether t
 
 ## Architecture
 
-```mermaid
-graph TB
-    subgraph Client
-        UI["Next.js Frontend<br/><i>Chat • Editor • Preview • Terminal</i>"]
-    end
-
-    subgraph API["Express Backend"]
-        direction TB
-        MW["Auth + Rate Limit + Correlation ID"]
-        SEC["Security Layer<br/><i>defense-in-depth</i>"]
-        AGENT["Agent Loop"]
-        LLM["LLM Router<br/><i>Anthropic • Bedrock • Ollama</i>"]
-        VAL["Validation Pipeline<br/><i>AST • Build • Autofix</i>"]
-        DEPLOY["Deploy Pipeline<br/><i>Detect • Build • Gate • Ship</i>"]
-    end
-
-    subgraph Data
-        PG[("PostgreSQL<br/>13 models")]
-        REDIS[("Redis<br/>Streams + Cache")]
-    end
-
-    subgraph Workspace["Sandboxed Workspace"]
-        direction LR
-        INIT["Init<br/>Snapshot"]
-        MAIN["Main<br/>Node + ttyd"]
-        SIDE["Sidecar<br/>Backup"]
-    end
-
-    subgraph Observe["Observability"]
-        direction LR
-        PROM["Prometheus"]
-        GRAF["Grafana<br/><i>6 dashboards</i>"]
-        JAEG["Jaeger"]
-        LOKI["Loki"]
-        SIEM["SIEM Engine<br/><i>13 rules</i>"]
-    end
-
-    UI -->|"SSE / REST"| MW
-    MW --> SEC --> AGENT
-    AGENT --> LLM
-    AGENT --> Workspace
-    AGENT --> VAL
-    SEC --> DEPLOY
-    AGENT -->|events| REDIS
-    REDIS --> SIEM
-    REDIS --> Observe
-    API --> PG
-
-    classDef red fill:#dc2626,stroke:#991b1b,color:#fff
-    classDef blue fill:#2563eb,stroke:#1d4ed8,color:#fff
-    classDef green fill:#059669,stroke:#047857,color:#fff
-    classDef purple fill:#7c3aed,stroke:#6d28d9,color:#fff
-    classDef dark fill:#1e293b,stroke:#334155,color:#e2e8f0
-
-    class SEC red
-    class Workspace blue
-    class Observe green
-    class LLM,VAL purple
-    class PG,REDIS dark
-```
+<a href="docs/diagrams/architecture-animated.svg">
+  <img src="docs/diagrams/architecture-animated.svg" alt="System Architecture" width="100%"/>
+</a>
 
 ---
 
 ## Security Layers
-
-```mermaid
-flowchart LR
-    subgraph A["<b>PRE-LLM</b>"]
-        A1["Input<br/>Firewall"]
-        A2["Injection<br/>Detector"]
-        A3["Intent<br/>Classifier"]
-        A4["Secret<br/>Detector"]
-        A5["System Prompt<br/>Hardening"]
-    end
-
-    subgraph B["<b>POST-LLM</b>"]
-        B1["Output<br/>Filter"]
-        B2["Package<br/>Filter"]
-    end
-
-    subgraph C["<b>RUNTIME</b>"]
-        C1["Trajectory<br/>Monitor"]
-        C2["Behavioral<br/>Detector"]
-    end
-
-    subgraph D["<b>CODE ANALYSIS</b>"]
-        D1["SAST"]
-        D2["SCA"]
-        D3["Secrets"]
-        D4["SBOM"]
-        D5["Image"]
-    end
-
-    subgraph E["<b>DETECTION</b>"]
-        E1["Runtime<br/>Correlator"]
-        E2["SIEM<br/>Engine"]
-    end
-
-    A --> B --> C --> D --> E
-
-    classDef pre fill:#dc2626,stroke:#991b1b,color:#fff
-    classDef post fill:#ea580c,stroke:#c2410c,color:#fff
-    classDef runtime fill:#ca8a04,stroke:#a16207,color:#fff
-    classDef code fill:#16a34a,stroke:#15803d,color:#fff
-    classDef detect fill:#2563eb,stroke:#1d4ed8,color:#fff
-
-    class A1,A2,A3,A4,A5 pre
-    class B1,B2 post
-    class C1,C2 runtime
-    class D1,D2,D3,D4,D5 code
-    class E1,E2 detect
-```
 
 | # | Layer | Phase | Technique | Catches | Latency |
 |:---:|-------|:-----:|-----------|---------|:-------:|
