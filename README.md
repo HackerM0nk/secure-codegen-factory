@@ -21,20 +21,71 @@ Defense-in-depth controls wrapping untrusted LLMs in sandboxed workspaces
 
 Users describe an app in natural language. An AI agent builds it in an isolated container with live preview, code editor, and terminal. Every stage — input, inference, code generation, tool execution, deployment — is wrapped by independent security controls that **assume the model is adversarial**.
 
-```
-  User Prompt
-       │
-  ┌────▼─────┐   ┌──────────────┐   ┌─────────────────┐   ┌────────────────┐
-  │  INPUT    │──▶│   LLM AGENT  │──▶│  OUTPUT FILTER   │──▶│   SANDBOXED    │
-  │  FIREWALL │   │  (any model) │   │  + PKG FILTER    │   │   WORKSPACE    │
-  └──────────┘   └──────────────┘   └─────────────────┘   └───────┬────────┘
-       │                                                           │
-  Injection         Behavioral                SAST/SCA/         Runtime
-  Detector          Detector                  Secrets           eBPF Monitor
-  Intent            Trajectory                SBOM              (Tetragon)
-  Classifier        Monitor                   Image Scan        SIEM Engine
-  Secret                                                        Grafana
-  Detector                                                      Alerting
+```mermaid
+flowchart LR
+    UP((User<br/>Prompt)) --> PRE
+
+    subgraph PRE["Pre-LLM Gate"]
+        direction TB
+        FW["Input Firewall"]
+        INJ["Injection Detector"]
+        INT["Intent Classifier"]
+        SEC["Secret Detector"]
+        SP["System Prompt Hardening"]
+    end
+
+    PRE --> LLM
+
+    subgraph LLM["LLM Agent"]
+        direction TB
+        ROUTER["Multi-Provider Router"]
+        TRAJ["Trajectory Monitor"]
+        BEH["Behavioral Detector"]
+    end
+
+    LLM --> POST
+
+    subgraph POST["Post-LLM Gate"]
+        direction TB
+        OF["Output Filter"]
+        PF["Package Filter"]
+        SAST["SAST Scanner"]
+        SCA["SCA + SBOM"]
+        SECR["Secret Scanner"]
+    end
+
+    POST --> WS
+
+    subgraph WS["Sandboxed Workspace"]
+        direction TB
+        DOCK["Docker / K8s"]
+        EBPF["Tetragon eBPF"]
+        CIL["Cilium Network"]
+        GATE["Gatekeeper"]
+    end
+
+    WS --> OBS
+
+    subgraph OBS["Detection"]
+        direction TB
+        SIEM["SIEM Engine"]
+        CORR["Runtime Correlator"]
+        ALERT["AlertManager"]
+    end
+
+    classDef preLLM fill:#dc2626,stroke:#991b1b,color:#fff
+    classDef llmNode fill:#7c3aed,stroke:#6d28d9,color:#fff
+    classDef postLLM fill:#ea580c,stroke:#c2410c,color:#fff
+    classDef sandbox fill:#2563eb,stroke:#1d4ed8,color:#fff
+    classDef detect fill:#059669,stroke:#047857,color:#fff
+    classDef user fill:#1e293b,stroke:#475569,color:#e2e8f0
+
+    class FW,INJ,INT,SEC,SP preLLM
+    class ROUTER,TRAJ,BEH llmNode
+    class OF,PF,SAST,SCA,SECR postLLM
+    class DOCK,EBPF,CIL,GATE sandbox
+    class SIEM,CORR,ALERT detect
+    class UP user
 ```
 
 ## Why This Exists

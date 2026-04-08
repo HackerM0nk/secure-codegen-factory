@@ -107,11 +107,15 @@ export function authMiddleware(required = true) {
   };
 }
 
-// RBAC middleware
+// RBAC middleware — role hierarchy: owner > admin > member > viewer
+const ROLE_HIERARCHY: Record<string, number> = { viewer: 0, member: 1, admin: 2, owner: 3 };
+
 export function requireRole(...roles: string[]) {
   return (req: Request, res: Response, next: NextFunction) => {
     if (!req.user) return res.status(401).json({ error: "Not authenticated" });
-    if (!roles.includes(req.user.role)) {
+    const userLevel = ROLE_HIERARCHY[req.user.role] ?? -1;
+    const minRequired = Math.min(...roles.map((r) => ROLE_HIERARCHY[r] ?? 99));
+    if (userLevel < minRequired) {
       return res.status(403).json({ error: "Insufficient permissions", required: roles });
     }
     next();
