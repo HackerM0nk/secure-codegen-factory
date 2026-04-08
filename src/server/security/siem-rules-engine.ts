@@ -157,7 +157,7 @@ const DETECTION_RULES: SiemRule[] = [
     description: "LLM provider health degraded",
     match: {
       eventType: "llm.provider_health",
-      fieldMatch: { score: /^[0-3]/ }, // low scores
+      fieldMatch: { score: /^-?\d|^[0-3](\.|$)/ }, // low or negative scores
     },
     groups: ["devfactory_operations", "llm"],
   },
@@ -253,7 +253,7 @@ export class SiemRulesEngine {
   }
 
   private async subscribeToStreams(): Promise<void> {
-    const streams = ["security", "workspace", "deploy", "llm"];
+    const streams = ["security", "workspace", "build", "llm", "agent", "billing"];
     for (const stream of streams) {
       try {
         await this.eventBus.createGroup(stream, "siem-engine");
