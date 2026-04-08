@@ -1,0 +1,326 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 780" font-family="'Inter','Segoe UI','Helvetica Neue',Arial,sans-serif">
+  <defs>
+    <!-- Clean solid header colors (no heavy gradients) -->
+    <linearGradient id="hdr-slate" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#334155"/><stop offset="100%" stop-color="#475569"/>
+    </linearGradient>
+    <linearGradient id="hdr-violet" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#7c3aed"/><stop offset="100%" stop-color="#8b5cf6"/>
+    </linearGradient>
+    <linearGradient id="hdr-teal" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#0d9488"/><stop offset="100%" stop-color="#14b8a6"/>
+    </linearGradient>
+    <linearGradient id="hdr-rose" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#e11d48"/><stop offset="100%" stop-color="#f43f5e"/>
+    </linearGradient>
+    <linearGradient id="hdr-amber" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#d97706"/><stop offset="100%" stop-color="#f59e0b"/>
+    </linearGradient>
+    <linearGradient id="hdr-blue" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#2563eb"/><stop offset="100%" stop-color="#3b82f6"/>
+    </linearGradient>
+    <linearGradient id="hdr-cyan" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#0891b2"/><stop offset="100%" stop-color="#06b6d4"/>
+    </linearGradient>
+    <linearGradient id="hdr-indigo" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#4338ca"/><stop offset="100%" stop-color="#6366f1"/>
+    </linearGradient>
+
+    <!-- Arrow markers -->
+    <marker id="arr-slate" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0.5, 9 3.5, 0 6.5" fill="#64748b"/>
+    </marker>
+    <marker id="arr-amber" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0.5, 9 3.5, 0 6.5" fill="#d97706"/>
+    </marker>
+    <marker id="arr-blue" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0.5, 9 3.5, 0 6.5" fill="#2563eb"/>
+    </marker>
+    <marker id="arr-cyan" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0.5, 9 3.5, 0 6.5" fill="#0891b2"/>
+    </marker>
+    <marker id="arr-rose" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0.5, 9 3.5, 0 6.5" fill="#e11d48"/>
+    </marker>
+    <marker id="arr-teal" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0.5, 9 3.5, 0 6.5" fill="#0d9488"/>
+    </marker>
+
+    <!-- Drop shadow -->
+    <filter id="drop" x="-4%" y="-4%" width="108%" height="116%">
+      <feDropShadow dx="0" dy="2" stdDeviation="4" flood-color="#0f172a" flood-opacity="0.08"/>
+    </filter>
+    <filter id="drop-sm" x="-3%" y="-6%" width="106%" height="120%">
+      <feDropShadow dx="0" dy="1" stdDeviation="2" flood-color="#0f172a" flood-opacity="0.06"/>
+    </filter>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1200" height="780" fill="#fafbfc" rx="12"/>
+
+  <!-- Title -->
+  <text x="600" y="32" text-anchor="middle" font-size="20" font-weight="800" fill="#0f172a" letter-spacing="-0.5">Secure CodeGen — System Architecture</text>
+  <text x="600" y="50" text-anchor="middle" font-size="11" font-weight="500" fill="#94a3b8" letter-spacing="0.2">End-to-end request flow from developer prompt to sandboxed execution</text>
+
+  <!-- ============================================================= -->
+  <!-- ROW 1: Developer -> Frontend -> Backend -> Workspace Runtime   -->
+  <!-- ============================================================= -->
+
+  <!-- Developer icon -->
+  <g transform="translate(28, 80)">
+    <circle cx="32" cy="32" r="32" fill="url(#hdr-slate)" filter="url(#drop)"/>
+    <circle cx="32" cy="22" r="8" fill="none" stroke="#cbd5e1" stroke-width="1.8"/>
+    <path d="M14,46 Q14,35 32,35 Q50,35 50,46" fill="none" stroke="#cbd5e1" stroke-width="1.8"/>
+    <text x="32" y="78" text-anchor="middle" font-size="11" fill="#334155" font-weight="700">Developer</text>
+  </g>
+
+  <!-- Arrow: Developer -> Frontend -->
+  <line x1="92" y1="112" x2="135" y2="112" stroke="#64748b" stroke-width="2" marker-end="url(#arr-slate)" stroke-linecap="round"/>
+
+  <!-- Frontend container -->
+  <g transform="translate(140, 72)">
+    <rect width="175" height="100" rx="12" fill="#faf5ff" stroke="#e9d5ff" stroke-width="1" filter="url(#drop)"/>
+    <!-- SINGLE header rect -->
+    <rect width="175" height="32" rx="12" fill="url(#hdr-violet)"/>
+    <text x="87" y="22" text-anchor="middle" font-size="12" font-weight="700" fill="white">Frontend</text>
+    <!-- Inner chips -->
+    <rect x="12" y="42" width="151" height="22" rx="6" fill="#8b5cf6" opacity="0.9"/>
+    <text x="87" y="57" text-anchor="middle" font-size="10" fill="white" font-weight="600">Next.js App Builder</text>
+    <rect x="12" y="70" width="151" height="22" rx="6" fill="#8b5cf6" opacity="0.75"/>
+    <text x="87" y="85" text-anchor="middle" font-size="10" fill="white" font-weight="600">xterm.js Terminal</text>
+  </g>
+
+  <!-- Arrow: Frontend -> Backend with pill label -->
+  <line x1="315" y1="112" x2="368" y2="112" stroke="#64748b" stroke-width="2" marker-end="url(#arr-slate)" stroke-linecap="round"/>
+  <!-- Pill label: REST + SSE -->
+  <rect x="316" y="86" width="62" height="18" rx="9" fill="#64748b"/>
+  <text x="347" y="99" text-anchor="middle" font-size="10" fill="white" font-weight="600">REST + SSE</text>
+
+  <!-- Backend API & Agent container -->
+  <g transform="translate(373, 62)">
+    <rect width="420" height="120" rx="12" fill="#f0fdf9" stroke="#ccfbf1" stroke-width="1" filter="url(#drop)"/>
+    <!-- SINGLE header rect -->
+    <rect width="420" height="32" rx="12" fill="url(#hdr-teal)"/>
+    <text x="210" y="22" text-anchor="middle" font-size="12" font-weight="700" fill="white">Backend API &amp; Agent</text>
+
+    <!-- Three main boxes -->
+    <rect x="14" y="42" width="118" height="28" rx="7" fill="#14b8a6"/>
+    <text x="73" y="60" text-anchor="middle" font-size="11" fill="white" font-weight="600">Express API</text>
+
+    <rect x="142" y="42" width="118" height="28" rx="7" fill="#14b8a6"/>
+    <text x="201" y="60" text-anchor="middle" font-size="11" fill="white" font-weight="600">Agent Loop</text>
+
+    <rect x="270" y="42" width="136" height="28" rx="7" fill="#e11d48"/>
+    <text x="338" y="60" text-anchor="middle" font-size="11" fill="white" font-weight="600">Security Control Plane</text>
+
+    <!-- Security layer chips bar -->
+    <rect x="14" y="80" width="392" height="28" rx="7" fill="#fff1f2" stroke="#fecdd3" stroke-width="0.8"/>
+    <rect x="18" y="84" width="52" height="20" rx="5" fill="#f43f5e"/>
+    <text x="44" y="98" text-anchor="middle" font-size="8" fill="white" font-weight="600">Firewall</text>
+    <rect x="74" y="84" width="52" height="20" rx="5" fill="#f43f5e"/>
+    <text x="100" y="98" text-anchor="middle" font-size="8" fill="white" font-weight="600">Injection</text>
+    <rect x="130" y="84" width="44" height="20" rx="5" fill="#f43f5e"/>
+    <text x="152" y="98" text-anchor="middle" font-size="8" fill="white" font-weight="600">Intent</text>
+    <rect x="178" y="84" width="48" height="20" rx="5" fill="#fb923c"/>
+    <text x="202" y="98" text-anchor="middle" font-size="8" fill="white" font-weight="600">Output</text>
+    <rect x="230" y="84" width="42" height="20" rx="5" fill="#fb923c"/>
+    <text x="251" y="98" text-anchor="middle" font-size="8" fill="white" font-weight="600">SAST</text>
+    <rect x="276" y="84" width="36" height="20" rx="5" fill="#fb923c"/>
+    <text x="294" y="98" text-anchor="middle" font-size="8" fill="white" font-weight="600">SCA</text>
+    <rect x="316" y="84" width="40" height="20" rx="5" fill="#8b5cf6"/>
+    <text x="336" y="98" text-anchor="middle" font-size="8" fill="white" font-weight="600">Traj</text>
+    <rect x="360" y="84" width="42" height="20" rx="5" fill="#8b5cf6"/>
+    <text x="381" y="98" text-anchor="middle" font-size="8" fill="white" font-weight="600">Behav</text>
+  </g>
+
+  <!-- Arrow: Backend -> Workspace Runtime with pill label -->
+  <line x1="793" y1="122" x2="848" y2="122" stroke="#0891b2" stroke-width="2" marker-end="url(#arr-cyan)" stroke-linecap="round"/>
+  <rect x="798" y="96" width="52" height="18" rx="9" fill="#0891b2"/>
+  <text x="824" y="109" text-anchor="middle" font-size="11" fill="white" font-weight="600">execute</text>
+
+  <!-- Workspace Runtime container -->
+  <g transform="translate(853, 62)">
+    <rect width="320" height="245" rx="12" fill="#ecfeff" stroke="#cffafe" stroke-width="1" filter="url(#drop)"/>
+    <!-- SINGLE header rect -->
+    <rect width="320" height="32" rx="12" fill="url(#hdr-cyan)"/>
+    <text x="160" y="22" text-anchor="middle" font-size="12" font-weight="700" fill="white">Workspace Runtime</text>
+
+    <rect x="14" y="42" width="292" height="38" rx="8" fill="#06b6d4" opacity="0.9"/>
+    <text x="160" y="58" text-anchor="middle" font-size="10" fill="white" font-weight="600">Docker Sandbox</text>
+    <text x="160" y="72" text-anchor="middle" font-size="9" fill="white" opacity="0.85">no-new-privileges, PID limit</text>
+
+    <rect x="14" y="88" width="292" height="38" rx="8" fill="#06b6d4" opacity="0.9"/>
+    <text x="160" y="104" text-anchor="middle" font-size="10" fill="white" font-weight="600">K8s Pod (3-container)</text>
+    <text x="160" y="118" text-anchor="middle" font-size="9" fill="white" opacity="0.85">init + main + sidecar</text>
+
+    <!-- Enforcement layer -->
+    <rect x="14" y="136" width="140" height="30" rx="7" fill="#2563eb" opacity="0.85"/>
+    <text x="84" y="155" text-anchor="middle" font-size="10" fill="white" font-weight="600">Tetragon</text>
+
+    <rect x="166" y="136" width="140" height="30" rx="7" fill="#2563eb" opacity="0.85"/>
+    <text x="236" y="155" text-anchor="middle" font-size="10" fill="white" font-weight="600">Cilium</text>
+
+    <rect x="14" y="176" width="140" height="30" rx="7" fill="#2563eb" opacity="0.85"/>
+    <text x="84" y="195" text-anchor="middle" font-size="10" fill="white" font-weight="600">Gatekeeper</text>
+
+    <rect x="166" y="176" width="140" height="30" rx="7" fill="#2563eb" opacity="0.85"/>
+    <text x="236" y="195" text-anchor="middle" font-size="10" fill="white" font-weight="600">PSA</text>
+
+    <!-- Health pulse -->
+    <circle cx="300" cy="42" r="4" fill="#059669">
+      <animate attributeName="r" values="3;6;3" dur="2s" repeatCount="indefinite"/>
+      <animate attributeName="opacity" values="1;0.3;1" dur="2s" repeatCount="indefinite"/>
+    </circle>
+  </g>
+
+  <!-- ============================================================= -->
+  <!-- ROW 2: LLM Providers  |  Data Layer                           -->
+  <!-- ============================================================= -->
+
+  <!-- Arrow: Backend -> LLM Providers (vertical) with pill -->
+  <line x1="490" y1="182" x2="490" y2="330" stroke="#d97706" stroke-width="2" marker-end="url(#arr-amber)" stroke-linecap="round"/>
+  <rect x="500" y="248" width="46" height="18" rx="9" fill="#d97706"/>
+  <text x="523" y="261" text-anchor="middle" font-size="11" fill="white" font-weight="600">route</text>
+
+  <!-- Arrow: Backend -> Data Layer (vertical) with pill -->
+  <line x1="700" y1="182" x2="700" y2="330" stroke="#2563eb" stroke-width="2" marker-end="url(#arr-blue)" stroke-linecap="round"/>
+  <rect x="710" y="248" width="52" height="18" rx="9" fill="#2563eb"/>
+  <text x="736" y="261" text-anchor="middle" font-size="11" fill="white" font-weight="600">persist</text>
+
+  <!-- LLM Providers container -->
+  <g transform="translate(28, 335)">
+    <rect width="460" height="100" rx="12" fill="#fffbeb" stroke="#fde68a" stroke-width="1" filter="url(#drop)"/>
+    <!-- SINGLE header rect -->
+    <rect width="460" height="32" rx="12" fill="url(#hdr-amber)"/>
+    <text x="230" y="22" text-anchor="middle" font-size="12" font-weight="700" fill="white">LLM Providers</text>
+
+    <rect x="14" y="42" width="136" height="44" rx="8" fill="#f59e0b" opacity="0.9"/>
+    <text x="82" y="62" text-anchor="middle" font-size="10" fill="white" font-weight="600">Anthropic</text>
+    <text x="82" y="76" text-anchor="middle" font-size="10" fill="white" font-weight="600">Claude</text>
+
+    <rect x="162" y="42" width="136" height="44" rx="8" fill="#f59e0b" opacity="0.9"/>
+    <text x="230" y="62" text-anchor="middle" font-size="10" fill="white" font-weight="600">AWS</text>
+    <text x="230" y="76" text-anchor="middle" font-size="10" fill="white" font-weight="600">Bedrock</text>
+
+    <rect x="310" y="42" width="136" height="44" rx="8" fill="#f59e0b" opacity="0.9"/>
+    <text x="378" y="62" text-anchor="middle" font-size="10" fill="white" font-weight="600">Ollama</text>
+    <text x="378" y="76" text-anchor="middle" font-size="10" fill="white" font-weight="600">Local</text>
+  </g>
+
+  <!-- Data Layer container -->
+  <g transform="translate(520, 335)">
+    <rect width="300" height="100" rx="12" fill="#eff6ff" stroke="#dbeafe" stroke-width="1" filter="url(#drop)"/>
+    <!-- SINGLE header rect -->
+    <rect width="300" height="32" rx="12" fill="url(#hdr-blue)"/>
+    <text x="150" y="22" text-anchor="middle" font-size="12" font-weight="700" fill="white">Data Layer</text>
+
+    <rect x="14" y="42" width="130" height="44" rx="8" fill="#3b82f6" opacity="0.9"/>
+    <text x="79" y="69" text-anchor="middle" font-size="11" fill="white" font-weight="600">PostgreSQL</text>
+
+    <rect x="156" y="42" width="130" height="44" rx="8" fill="#3b82f6" opacity="0.9"/>
+    <text x="221" y="62" text-anchor="middle" font-size="11" fill="white" font-weight="600">Redis</text>
+    <text x="221" y="76" text-anchor="middle" font-size="10" fill="white" font-weight="500">Streams</text>
+  </g>
+
+  <!-- ============================================================= -->
+  <!-- ROW 3: Observability & Detection                               -->
+  <!-- ============================================================= -->
+
+  <!-- Arrow: Data Layer -> Observability (vertical) with pill -->
+  <line x1="740" y1="435" x2="740" y2="490" stroke="#e11d48" stroke-width="2" marker-end="url(#arr-rose)" stroke-linecap="round"/>
+  <rect x="750" y="454" width="52" height="18" rx="9" fill="#e11d48"/>
+  <text x="776" y="467" text-anchor="middle" font-size="11" fill="white" font-weight="600">events</text>
+
+  <!-- Arrow: Workspace -> Observability (dashed) with pill -->
+  <line x1="1013" y1="307" x2="1013" y2="490" stroke="#0d9488" stroke-width="2" marker-end="url(#arr-teal)" stroke-linecap="round" stroke-dasharray="6,3"/>
+  <rect x="1023" y="394" width="70" height="18" rx="9" fill="#0d9488"/>
+  <text x="1058" y="407" text-anchor="middle" font-size="11" fill="white" font-weight="600">telemetry</text>
+
+  <!-- Observability & Detection container -->
+  <g transform="translate(28, 495)">
+    <rect width="1145" height="150" rx="12" fill="#fff1f2" stroke="#fecdd3" stroke-width="1" filter="url(#drop)"/>
+    <!-- SINGLE header rect -->
+    <rect width="1145" height="32" rx="12" fill="url(#hdr-rose)"/>
+    <text x="572" y="22" text-anchor="middle" font-size="12" font-weight="700" fill="white">Observability &amp; Detection</text>
+
+    <!-- Tool boxes -->
+    <rect x="14" y="42" width="160" height="44" rx="8" fill="#f43f5e" opacity="0.9"/>
+    <text x="94" y="61" text-anchor="middle" font-size="10" fill="white" font-weight="600">SIEM Engine</text>
+    <text x="94" y="75" text-anchor="middle" font-size="9" fill="white" opacity="0.85">14 rules + 3 correlation</text>
+    <!-- Alert pulse on SIEM -->
+    <circle cx="162" cy="50" r="4" fill="#fbbf24">
+      <animate attributeName="r" values="3;7;3" dur="1.2s" repeatCount="indefinite"/>
+      <animate attributeName="opacity" values="1;0.2;1" dur="1.2s" repeatCount="indefinite"/>
+    </circle>
+
+    <rect x="186" y="42" width="160" height="44" rx="8" fill="#f43f5e" opacity="0.85"/>
+    <text x="266" y="61" text-anchor="middle" font-size="10" fill="white" font-weight="600">Prometheus</text>
+    <text x="266" y="75" text-anchor="middle" font-size="9" fill="white" opacity="0.85">metrics + alerts</text>
+
+    <rect x="358" y="42" width="160" height="44" rx="8" fill="#f43f5e" opacity="0.8"/>
+    <text x="438" y="61" text-anchor="middle" font-size="10" fill="white" font-weight="600">Grafana</text>
+    <text x="438" y="75" text-anchor="middle" font-size="9" fill="white" opacity="0.85">6 dashboards</text>
+
+    <rect x="530" y="42" width="140" height="44" rx="8" fill="#f43f5e" opacity="0.75"/>
+    <text x="600" y="61" text-anchor="middle" font-size="10" fill="white" font-weight="600">Loki</text>
+    <text x="600" y="75" text-anchor="middle" font-size="9" fill="white" opacity="0.85">structured logs</text>
+
+    <rect x="682" y="42" width="140" height="44" rx="8" fill="#f43f5e" opacity="0.75"/>
+    <text x="752" y="61" text-anchor="middle" font-size="10" fill="white" font-weight="600">Jaeger</text>
+    <text x="752" y="75" text-anchor="middle" font-size="9" fill="white" opacity="0.85">distributed traces</text>
+
+    <rect x="834" y="42" width="160" height="44" rx="8" fill="#f43f5e" opacity="0.7"/>
+    <text x="914" y="61" text-anchor="middle" font-size="10" fill="white" font-weight="600">AlertManager</text>
+    <text x="914" y="75" text-anchor="middle" font-size="9" fill="white" opacity="0.85">incident response</text>
+
+    <rect x="1006" y="42" width="125" height="44" rx="8" fill="#f43f5e" opacity="0.65"/>
+    <text x="1068" y="61" text-anchor="middle" font-size="10" fill="white" font-weight="600">Audit Log</text>
+    <text x="1068" y="75" text-anchor="middle" font-size="9" fill="white" opacity="0.85">immutable trail</text>
+
+    <!-- Event flow bar -->
+    <rect x="14" y="98" width="1117" height="26" rx="8" fill="#ffe4e6" stroke="#fecdd3" stroke-width="0.8"/>
+    <text x="572" y="116" text-anchor="middle" font-size="10" fill="#be123c" font-weight="500">Security Events → Redis Streams → SIEM Engine → Prometheus → Grafana  |  Pino → Fluent Bit → Loki  |  OTel → Jaeger</text>
+
+    <!-- Animated pulse dots flowing across event bar -->
+    <circle r="5" fill="#e11d48" opacity="0.8">
+      <animateMotion dur="4s" repeatCount="indefinite" path="M20,111 L1125,111"/>
+      <animate attributeName="opacity" values="0.9;0.3;0.9" dur="4s" repeatCount="indefinite"/>
+    </circle>
+    <circle r="5" fill="#e11d48" opacity="0.8">
+      <animateMotion dur="4s" repeatCount="indefinite" begin="1.33s" path="M20,111 L1125,111"/>
+      <animate attributeName="opacity" values="0.9;0.3;0.9" dur="4s" repeatCount="indefinite" begin="1.33s"/>
+    </circle>
+    <circle r="5" fill="#e11d48" opacity="0.8">
+      <animateMotion dur="4s" repeatCount="indefinite" begin="2.66s" path="M20,111 L1125,111"/>
+      <animate attributeName="opacity" values="0.9;0.3;0.9" dur="4s" repeatCount="indefinite" begin="2.66s"/>
+    </circle>
+  </g>
+
+  <!-- ============================================================= -->
+  <!-- BOTTOM: 5 Design Principle Cards                               -->
+  <!-- ============================================================= -->
+  <g transform="translate(28, 670)">
+    <rect x="0" y="0" width="218" height="48" rx="10" fill="#f0fdf9" stroke="#ccfbf1" stroke-width="1" filter="url(#drop-sm)"/>
+    <text x="109" y="19" text-anchor="middle" font-size="10" fill="#0d9488" font-weight="700">Control / Data Separation</text>
+    <text x="109" y="34" text-anchor="middle" font-size="9" fill="#5eead4" font-weight="500">Backend orchestrates, workspace executes</text>
+
+    <rect x="232" y="0" width="218" height="48" rx="10" fill="#fff1f2" stroke="#fecdd3" stroke-width="1" filter="url(#drop-sm)"/>
+    <text x="341" y="19" text-anchor="middle" font-size="10" fill="#e11d48" font-weight="700">Model-Agnostic Security</text>
+    <text x="341" y="34" text-anchor="middle" font-size="9" fill="#fda4af" font-weight="500">LLM is untrusted black box</text>
+
+    <rect x="464" y="0" width="218" height="48" rx="10" fill="#eff6ff" stroke="#dbeafe" stroke-width="1" filter="url(#drop-sm)"/>
+    <text x="573" y="19" text-anchor="middle" font-size="10" fill="#2563eb" font-weight="700">Observable by Default</text>
+    <text x="573" y="34" text-anchor="middle" font-size="9" fill="#93c5fd" font-weight="500">Every event → SIEM → audit trail</text>
+
+    <rect x="696" y="0" width="218" height="48" rx="10" fill="#faf5ff" stroke="#e9d5ff" stroke-width="1" filter="url(#drop-sm)"/>
+    <text x="805" y="19" text-anchor="middle" font-size="10" fill="#7c3aed" font-weight="700">Deterministic Policy</text>
+    <text x="805" y="34" text-anchor="middle" font-size="9" fill="#c4b5fd" font-weight="500">Agent proposes, engine validates</text>
+
+    <rect x="928" y="0" width="218" height="48" rx="10" fill="#fffbeb" stroke="#fde68a" stroke-width="1" filter="url(#drop-sm)"/>
+    <text x="1037" y="19" text-anchor="middle" font-size="10" fill="#d97706" font-weight="700">Multi-Provider</text>
+    <text x="1037" y="34" text-anchor="middle" font-size="9" fill="#fcd34d" font-weight="500">Claude, Bedrock, Ollama</text>
+  </g>
+
+  <!-- Footer -->
+  <text x="600" y="746" text-anchor="middle" font-size="9" fill="#cbd5e1">secure-codegen — AI-powered application builder with defense-in-depth security</text>
+</svg>
