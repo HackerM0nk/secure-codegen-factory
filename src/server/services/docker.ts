@@ -18,7 +18,7 @@ const DOCKER_SOCKET =
 
 const docker = new Docker({ socketPath: DOCKER_SOCKET });
 const WORKSPACE_IMAGE = process.env.WORKSPACE_IMAGE || "devfactory-workspace:latest";
-const NETWORK = "ai-dev-factory-v2_devfactory-v2";
+const NETWORK = process.env.DOCKER_NETWORK || "devfactory-net";
 const CONTAINER_PREFIX = "devfactory-v2-ws-";
 const TRAEFIK_ENTRYPOINT_PORT = "8090";
 

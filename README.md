@@ -21,6 +21,13 @@ Defense-in-depth controls wrapping untrusted LLMs in sandboxed workspaces
 
 Users describe an app in natural language. An AI agent builds it in an isolated container with live preview, code editor, and terminal. Every stage — input, inference, code generation, tool execution, deployment — is wrapped by independent security controls because **the model has no built-in security — it will generate whatever is requested**.
 
+<div align="center">
+  <img src="docs/screenshots/expense-dashboard-demo.png" alt="AI agent building a monthly expense dashboard — chat, code editor, file tree, terminal, and live preview" width="100%"/>
+  <p><i>AI agent building a React expense dashboard from a single prompt — 23 iterations, 183K tokens, live preview running inside sandboxed workspace</i></p>
+</div>
+
+---
+
 ## Why This Exists
 
 > **Core thesis: treat the LLM as an untrusted, non-deterministic actor.**

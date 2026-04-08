@@ -2,6 +2,7 @@ version: "3.9"
 
 networks:
   devfactory-v2:
+    name: devfactory-net
     driver: bridge
 
 volumes:
@@ -80,7 +81,7 @@ services:
       - "--api.insecure=true"
       - "--providers.docker=true"
       - "--providers.docker.exposedByDefault=false"
-      - "--providers.docker.network=ai-dev-factory-v2_devfactory-v2"
+      - "--providers.docker.network=devfactory-net"
       - "--entrypoints.web.address=:80"
       - "--log.level=INFO"
     volumes:

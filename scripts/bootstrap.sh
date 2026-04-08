@@ -128,6 +128,12 @@ if [ "$K8S_MODE" = true ]; then
   ok "Kind cluster ready with WORKSPACE_RUNTIME=kubernetes"
 fi
 
+# ── Build workspace image ────────────────────────────────────────────────────
+
+log "Building workspace Docker image..."
+docker build -f Dockerfile.workspace -t devfactory-workspace:latest . 2>&1 | tail -1
+ok "Workspace image built (devfactory-workspace:latest)"
+
 # ── Wait for critical services ───────────────────────────────────────────────
 
 log "Waiting for services to be healthy..."
