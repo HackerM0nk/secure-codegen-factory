@@ -79,8 +79,8 @@ app.use("/api/workspaces", authMiddleware(), rateLimiter("workspace"), workspace
 app.use("/api/agent", authMiddleware(), rateLimiter("agent"), agentRouter);
 app.use("/api/files", authMiddleware(), filesRouter);
 app.use("/api/billing", billingRouter);
-app.use("/api/security", authMiddleware(), securityRouter);
-app.use("/api/deploy", authMiddleware(), deployRouter);
+app.use("/api/security", authMiddleware(), rateLimiter("security"), securityRouter);
+app.use("/api/deploy", authMiddleware(), rateLimiter("deploy"), deployRouter);
 
 // Metrics endpoint (no auth — for Prometheus scraping)
 app.get("/metrics", metricsMiddleware());

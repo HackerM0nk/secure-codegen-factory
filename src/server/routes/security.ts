@@ -143,7 +143,7 @@ router.post("/test-package", async (req: Request, res: Response) => {
 
 // ── GET /api/security/stats ─────────────────────────────────────────────────
 // Return security statistics.
-router.get("/stats", (_req: Request, res: Response) => {
+router.get("/stats", (req: Request, res: Response) => {
   try {
     const commandStats = getSecurityStats();
 
@@ -158,6 +158,22 @@ router.get("/stats", (_req: Request, res: Response) => {
       const layerStats = securityLayer.getStats();
       activeSessions.push(...layerStats.activeSessions);
       firewallStats = layerStats.firewall || firewallStats;
+    }
+
+    // Fetch recent block events from SIEM for block-reason visibility
+    const siemEngine: SiemRulesEngine | undefined = req.app.get("siemEngine");
+    let recentBlocks: Array<{ timestamp: string; item: string; reason: string; severity: string }> = [];
+    if (siemEngine) {
+      const alerts = siemEngine.getAlerts(50);
+      recentBlocks = alerts
+        .filter((a: any) => a.level >= 8)
+        .slice(0, 20)
+        .map((a: any) => ({
+          timestamp: a.timestamp || new Date().toISOString(),
+          item: a.data?.command?.substring(0, 80) || a.data?.inputPreview?.substring(0, 80) || a.ruleName || "unknown",
+          reason: a.ruleName || a.ruleId || "Security policy",
+          severity: a.level >= 12 ? "critical" : a.level >= 8 ? "high" : "medium",
+        }));
     }
 
     return res.json({
@@ -179,6 +195,7 @@ router.get("/stats", (_req: Request, res: Response) => {
         flaggedSessions: activeSessions.filter((s) => s.level === "FLAGGED").length,
         pausedSessions: activeSessions.filter((s) => s.level === "PAUSED").length,
       },
+      recentBlocks,
       // Raw data for backward compatibility
       commands: {
         totalBlocks: commandStats.totalBlocks,

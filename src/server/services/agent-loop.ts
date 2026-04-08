@@ -118,6 +118,7 @@ export async function runAgentLoop(
 
   if (!preprocessResult.allowed) {
     const reason = preprocessResult.reason || "Input blocked by security policy";
+    metrics.securityBlocksTotal.inc({ category: "input_firewall", pattern: preprocessResult.firewallResult.tier || "unknown" });
     onEvent({
       type: "security_block",
       data: {
@@ -383,6 +384,7 @@ export async function runAgentLoop(
           result = filterResult.message || "Command blocked by security policy.";
           isError = true;
           verdict = "BLOCK";
+          metrics.securityBlocksTotal.inc({ category: "output_filter", pattern: filterResult.commandFilterResult?.pattern || "package_filter" });
 
           await eventBus.emit("security", EVENT_TYPES.SECURITY_COMMAND_BLOCKED, {
             userId,

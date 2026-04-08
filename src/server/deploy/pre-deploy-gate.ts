@@ -10,6 +10,7 @@ import { generateSbom } from "../security/sbom-generator";
 export interface GateResult {
   passed: boolean;
   checks: GateCheck[];
+  blockReasons: string[];
   sbom?: ReturnType<typeof generateSbom>;
 }
 
@@ -149,9 +150,67 @@ export async function runPreDeployGate(containerName: string): Promise<GateResul
     checks.push({ name: "Build Test", passed: false, severity: "critical", details: err.message });
   }
 
+  const passed = checks.every((c) => c.passed || c.severity !== "critical");
+  const blockReasons = checks
+    .filter((c) => !c.passed && c.severity === "critical")
+    .map((c) => `${c.name}: ${c.details}`);
+
   return {
-    passed: checks.every((c) => c.passed || c.severity !== "critical"),
+    passed,
     checks,
+    blockReasons,
     sbom: sbomResult,
   };
+}
+
+/**
+ * Lightweight preview gate — runs the same SAST + secret scan as deploy gate
+ * but skips SCA (slow) and build test (already running). Use this before
+ * exposing a preview URL so that generated code with critical issues
+ * (eval, innerHTML, hardcoded secrets) is flagged before users see it.
+ */
+export async function runPreviewGate(containerName: string): Promise<GateResult> {
+  const checks: GateCheck[] = [];
+  const files = await collectFiles(containerName);
+
+  // SAST scan — same as deploy
+  try {
+    const sast = scanFiles(files);
+    const criticalCount = sast.findings.filter((f) => f.severity === "critical").length;
+    checks.push({
+      name: "SAST (Preview)",
+      passed: criticalCount === 0,
+      severity: criticalCount > 0 ? "critical" : "info",
+      details: criticalCount > 0
+        ? `${criticalCount} critical findings — preview may serve unsafe content`
+        : `Clean — ${sast.filesScanned} files scanned`,
+      findings: sast.findings.length,
+    });
+  } catch (err: any) {
+    checks.push({ name: "SAST (Preview)", passed: true, severity: "info", details: `Skipped: ${err.message}` });
+  }
+
+  // Secret scan — same as deploy
+  try {
+    const secrets = scanForSecrets(files);
+    const criticalSecrets = secrets.findings.filter((f) => f.severity === "critical").length;
+    checks.push({
+      name: "Secret Scan (Preview)",
+      passed: criticalSecrets === 0,
+      severity: criticalSecrets > 0 ? "critical" : "info",
+      details: criticalSecrets > 0
+        ? `${criticalSecrets} secrets found — preview would expose credentials`
+        : `No secrets detected`,
+      findings: secrets.findings.length,
+    });
+  } catch (err: any) {
+    checks.push({ name: "Secret Scan (Preview)", passed: true, severity: "info", details: `Skipped: ${err.message}` });
+  }
+
+  const passed = checks.every((c) => c.passed || c.severity !== "critical");
+  const blockReasons = checks
+    .filter((c) => !c.passed && c.severity === "critical")
+    .map((c) => `${c.name}: ${c.details}`);
+
+  return { passed, checks, blockReasons };
 }

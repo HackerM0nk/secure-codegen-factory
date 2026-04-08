@@ -4,10 +4,18 @@ import { useEffect, useState } from "react";
 import { Shield, AlertTriangle, Activity, Cpu, DollarSign, RefreshCw, TrendingUp, Lock } from "lucide-react";
 import { useAuth } from "@/lib/AuthProvider";
 
+interface RecentBlock {
+  timestamp: string;
+  item: string;
+  reason: string;
+  severity: "critical" | "high" | "medium";
+}
+
 interface SecurityStats {
   inputFirewall: { totalChecked: number; blocked: number; flagged: number; topPatterns: { pattern: string; count: number }[] };
   outputFilter: { totalChecked: number; blocked: number; alerted: number; topBlocked: { pattern: string; count: number }[] };
   trajectoryMonitor: { activeSessions: number; flaggedSessions: number; pausedSessions: number };
+  recentBlocks?: RecentBlock[];
 }
 
 interface ProviderHealth {
@@ -79,7 +87,7 @@ export function SecurityDashboard() {
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-green-500/10 border border-green-500/20">
             <Lock size={13} className="text-green-400" />
-            <span className="text-xs font-medium text-green-400">16 Security Layers Active</span>
+            <span className="text-xs font-medium text-green-400">Defense-in-Depth Active</span>
           </div>
           <span className="text-xs text-zinc-600">
             Last refresh: {lastRefresh.toLocaleTimeString()}
@@ -190,6 +198,40 @@ export function SecurityDashboard() {
           )}
         </div>
       </div>
+
+      {/* Recent Blocks — shows WHY each block happened */}
+      {security?.recentBlocks && security.recentBlocks.length > 0 && (
+        <div className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-5">
+          <h2 className="text-sm font-semibold mb-4 flex items-center gap-2 text-zinc-300">
+            <Shield size={16} className="text-red-400" /> Recent Blocks
+          </h2>
+          <div className="space-y-2">
+            {security.recentBlocks.map((b, i) => {
+              const severityColors = {
+                critical: "bg-red-500/10 text-red-400 border-red-500/20",
+                high: "bg-orange-500/10 text-orange-400 border-orange-500/20",
+                medium: "bg-yellow-500/10 text-yellow-400 border-yellow-500/20",
+              };
+              return (
+                <div key={i} className="flex items-center justify-between py-2 border-b border-zinc-800/50 last:border-0">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium border ${severityColors[b.severity]}`}>
+                      {b.severity.toUpperCase()}
+                    </span>
+                    <code className="text-xs font-mono text-zinc-400 truncate max-w-[300px]">{b.item}</code>
+                  </div>
+                  <div className="flex items-center gap-3 flex-shrink-0">
+                    <span className="text-xs text-zinc-500">{b.reason}</span>
+                    <span className="text-[10px] text-zinc-600 tabular-nums">
+                      {new Date(b.timestamp).toLocaleTimeString()}
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Top Blocked Patterns */}
       {security?.inputFirewall.topPatterns && security.inputFirewall.topPatterns.length > 0 && (

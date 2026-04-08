@@ -12,6 +12,7 @@ export async function deployProject(projectId: string, userId: string): Promise<
   deploymentId: string;
   url?: string;
   error?: string;
+  blockReasons?: string[];
 }> {
   const project = await prisma.project.findUniqueOrThrow({ where: { id: projectId } });
   if (!project.containerName || project.status !== "running") {
@@ -32,17 +33,22 @@ export async function deployProject(projectId: string, userId: string): Promise<
     // 1. Pre-deploy gate
     const gateResult = await runPreDeployGate(project.containerName);
     if (!gateResult.passed) {
+      const blockLog = gateResult.checks
+        .filter((c) => !c.passed)
+        .map((c) => `  [${c.severity}] ${c.name}: ${c.details}`)
+        .join("\n");
       await prisma.deployment.update({
         where: { id: deployment.id },
         data: {
           status: "failed",
-          buildLog: `Pre-deploy gate failed:\n${gateResult.checks
-            .filter((c) => !c.passed)
-            .map((c) => `  [${c.severity}] ${c.name}: ${c.details}`)
-            .join("\n")}`,
+          buildLog: `Pre-deploy gate failed:\n${blockLog}`,
         },
       });
-      return { deploymentId: deployment.id, error: "Pre-deploy gate failed" };
+      return {
+        deploymentId: deployment.id,
+        error: "Pre-deploy gate failed",
+        blockReasons: gateResult.blockReasons,
+      };
     }
 
     // 2. Detect framework
@@ -96,6 +102,9 @@ export async function deployProject(projectId: string, userId: string): Promise<
         NetworkMode: "devfactory",
         Memory: 512 * 1024 * 1024, // 512MB (deployed apps need less)
         NanoCpus: 1e9, // 1 CPU
+        PidsLimit: 128,
+        SecurityOpt: ["no-new-privileges"],
+        ReadonlyRootfs: true,
       },
     });
 
