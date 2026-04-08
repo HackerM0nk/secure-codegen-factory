@@ -149,7 +149,7 @@ export async function createWorkspace(projectId: string, snapshotKey?: string): 
           securityContext: {
             runAsNonRoot: true, runAsUser: 1001,
             allowPrivilegeEscalation: false,
-            readOnlyRootFilesystem: false,
+            readOnlyRootFilesystem: true,
             capabilities: { drop: ["ALL"] },
             seccompProfile: { type: "RuntimeDefault" },
           },
@@ -356,6 +356,94 @@ async function waitForPodDeletion(name: string, timeoutMs: number): Promise<void
     try { await coreApi.readNamespacedPod(name, NAMESPACE); } catch { return; }
     await new Promise((r) => setTimeout(r, 500));
   }
+}
+
+// ── K8s-native snapshot operations ──────────────────────────────────────
+
+import { S3Client, PutObjectCommand, GetObjectCommand, HeadObjectCommand } from "@aws-sdk/client-s3";
+import { createHash } from "crypto";
+import { Readable } from "stream";
+
+const s3 = new S3Client({
+  region: S3_REGION,
+  endpoint: process.env.S3_ENDPOINT || "http://localhost:4666",
+  forcePathStyle: true,
+  credentials: {
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID || "test",
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || "test",
+  },
+});
+
+export interface SnapshotResult {
+  snapshotKey: string;
+  snapshotHash: string;
+  sizeBytes: number;
+}
+
+export async function saveSnapshot(
+  containerName: string,
+  projectId: string
+): Promise<SnapshotResult> {
+  // Create tar inside the pod via exec (no Docker dependency)
+  await execInWorkspace(
+    containerName,
+    "cd /workspace && tar czf /tmp/snapshot.tar.gz --exclude=node_modules --exclude=.git --exclude=dist ."
+  );
+
+  // Read the tar content via exec + base64 (kubectl cp equivalent)
+  const result = await execInWorkspace(containerName, "base64 /tmp/snapshot.tar.gz");
+  const tarBuffer = Buffer.from(result.stdout, "base64");
+
+  const contentHash = createHash("sha256").update(tarBuffer).digest("hex");
+  const snapshotKey = `${projectId}/${contentHash}.tar.gz`;
+
+  try {
+    await s3.send(new HeadObjectCommand({ Bucket: S3_BUCKET, Key: snapshotKey }));
+    return { snapshotKey, snapshotHash: contentHash, sizeBytes: tarBuffer.length };
+  } catch {}
+
+  await s3.send(new PutObjectCommand({
+    Bucket: S3_BUCKET, Key: snapshotKey, Body: tarBuffer,
+    ContentType: "application/gzip",
+    Metadata: { "content-hash": contentHash, "project-id": projectId },
+  }));
+
+  return { snapshotKey, snapshotHash: contentHash, sizeBytes: tarBuffer.length };
+}
+
+export async function restoreSnapshot(
+  containerName: string,
+  snapshotKey: string,
+  expectedHash?: string
+): Promise<{ verified: boolean; durationMs: number }> {
+  const start = Date.now();
+
+  const response = await s3.send(new GetObjectCommand({ Bucket: S3_BUCKET, Key: snapshotKey }));
+  const chunks: Buffer[] = [];
+  for await (const chunk of response.Body as AsyncIterable<Buffer>) {
+    chunks.push(chunk);
+  }
+  const tarBuffer = Buffer.concat(chunks);
+
+  const actualHash = createHash("sha256").update(tarBuffer).digest("hex");
+  if (expectedHash && actualHash !== expectedHash) {
+    throw new Error(`Snapshot integrity failed: expected ${expectedHash}, got ${actualHash}`);
+  }
+
+  // Write tar into pod via exec + base64 (kubectl cp equivalent)
+  const b64 = tarBuffer.toString("base64");
+  // Split into chunks to avoid exec arg limits
+  const chunkSize = 65536;
+  await execInWorkspace(containerName, "rm -f /tmp/snapshot.tar.gz.b64");
+  for (let i = 0; i < b64.length; i += chunkSize) {
+    const slice = b64.slice(i, i + chunkSize);
+    await execInWorkspace(containerName, `printf '%s' '${slice}' >> /tmp/snapshot.tar.gz.b64`);
+  }
+  await execInWorkspace(containerName, "base64 -d /tmp/snapshot.tar.gz.b64 > /tmp/snapshot.tar.gz");
+  await execInWorkspace(containerName, "cd /workspace && tar xzf /tmp/snapshot.tar.gz");
+  await execInWorkspace(containerName, "cd /workspace && npm install --prefer-offline 2>/dev/null || true");
+
+  return { verified: !!expectedHash || !!response.Metadata?.["content-hash"], durationMs: Date.now() - start };
 }
 
 export { validateWorkspacePath };

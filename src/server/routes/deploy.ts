@@ -43,9 +43,16 @@ router.get("/:projectId/deployments", async (req, res) => {
 
 // GET /api/deploy/deployment/:id
 router.get("/deployment/:id", async (req, res) => {
-  const deployment = await prisma.deployment.findUnique({ where: { id: req.params.id } });
+  const deployment = await prisma.deployment.findUnique({
+    where: { id: req.params.id },
+    include: { project: { select: { orgId: true } } },
+  });
   if (!deployment) return res.status(404).json({ error: "Not found" });
-  res.json(deployment);
+  if (deployment.project.orgId !== req.user!.orgId) {
+    return res.status(404).json({ error: "Not found" });
+  }
+  const { project: _, ...safe } = deployment as any;
+  res.json(safe);
 });
 
 export default router;

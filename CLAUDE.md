@@ -48,7 +48,7 @@ This is a **working local prototype** with full security control plane, observab
 
 ### Intentional simplifications for local demo
 - **Auth**: `jwt.verify()` with a static secret (`JWT_SECRET` defaults to `"dev-secret-change-in-production"`). Signatures are verified, but the secret is not rotated. Production: Keycloak JWKS endpoint for RS256.
-- **Docker sandbox**: `ReadonlyRootfs: false` in Docker mode. K8s template uses read-only root + dropped capabilities.
+- **Docker sandbox**: `ReadonlyRootfs: false` in Docker mode. K8s pods use `readOnlyRootFilesystem: true` with writable volume mounts for `/workspace` and `/tmp`.
 - **Localhost URLs**: Hardcoded across frontend/backend. Production: service discovery / env-based.
 
 ### Not yet built

@@ -102,29 +102,45 @@ async function apiCall(
 ): Promise<{ status: number; data: any; durationMs: number }> {
   const url = `${config.apiUrl}${path}`;
   const start = Date.now();
+  const maxRetries = 3;
 
-  try {
-    const headers: Record<string, string> = { "Content-Type": "application/json" };
-    if (AUTH_TOKEN) {
-      headers["Authorization"] = `Bearer ${AUTH_TOKEN}`;
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      if (AUTH_TOKEN) {
+        headers["Authorization"] = `Bearer ${AUTH_TOKEN}`;
+      }
+
+      const resp = await fetch(url, {
+        method: "POST",
+        headers,
+        body: JSON.stringify(body),
+        signal: AbortSignal.timeout(30_000),
+      });
+
+      // Retry on rate limit with exponential backoff
+      if (resp.status === 429 && attempt < maxRetries) {
+        const retryAfter = parseInt(resp.headers.get("retry-after") || "2");
+        await new Promise((r) => setTimeout(r, retryAfter * 1000 * (attempt + 1)));
+        continue;
+      }
+
+      const data = await resp.json().catch(() => ({}));
+      return { status: resp.status, data, durationMs: Date.now() - start };
+    } catch (err: any) {
+      if (attempt < maxRetries) {
+        await new Promise((r) => setTimeout(r, 1000 * (attempt + 1)));
+        continue;
+      }
+      return {
+        status: 0,
+        data: { error: err.message },
+        durationMs: Date.now() - start,
+      };
     }
-
-    const resp = await fetch(url, {
-      method: "POST",
-      headers,
-      body: JSON.stringify(body),
-      signal: AbortSignal.timeout(30_000),
-    });
-
-    const data = await resp.json().catch(() => ({}));
-    return { status: resp.status, data, durationMs: Date.now() - start };
-  } catch (err: any) {
-    return {
-      status: 0,
-      data: { error: err.message },
-      durationMs: Date.now() - start,
-    };
   }
+
+  return { status: 0, data: { error: "Max retries exceeded" }, durationMs: Date.now() - start };
 }
 
 // ── JSON path resolver ────────────────────────────────────────────────

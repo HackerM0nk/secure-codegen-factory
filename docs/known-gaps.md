@@ -176,18 +176,15 @@ auth flow is skippable in local dev.
 
 Production would use Keycloak JWKS for RS256 verification with key rotation.
 
-### Terminal Access: ttyd Without Credentials
+### Terminal Access: Credential-Protected ttyd
 
-**File**: `workspace-entrypoint.sh` lines 23-27
+**File**: `src/server/services/docker.ts`, `src/server/services/k8s-workspace.ts`
 
-If `TTYD_USER` and `TTYD_PASS` are not set, ttyd starts with `--writable` and no
-credential flag. Anyone who can reach port 8080 on the container (or port 8090
-through Traefik) gets a root-equivalent shell. The `TerminalPanel.tsx` WebSocket
-connection sends `AuthToken: ""` (line 49).
-
-The `Dockerfile.workspace` does create a non-root `workspace` user (lines 55-56)
-and sets `USER workspace` (line 68), so the shell runs as UID 1001 -- not root.
-But there is no authentication layer between the browser and ttyd.
+~~Previously, ttyd started without credentials.~~ **FIXED (2026-04-08)**:
+Workspace creation now generates CSPRNG credentials (`TTYD_USER`/`TTYD_PASS`)
+injected via environment variables. The frontend fetches credentials via
+`GET /api/workspaces/:id/terminal-credentials` and sends them in the WebSocket
+handshake. The shell runs as UID 1001 (non-root).
 
 ### Docker: `ReadonlyRootfs: false` (INV-9 gap)
 
@@ -315,13 +312,10 @@ No application traces are visible.
 
 These are issues that cause runtime errors or visible misbehavior.
 
-### CodeEditor: Edits Are Never Saved Back
+### ~~CodeEditor: Edits Are Never Saved Back~~ — FIXED (2026-04-08)
 
-`src/components/workspace/CodeEditor.tsx` binds Monaco's `onChange` to update local
-React state (line 251), but there is no save action -- no keyboard shortcut
-handler, no debounced write, no save button. The `POST /api/files/:projectId/write`
-endpoint exists and works, but the CodeEditor never calls it. User edits in the
-browser are lost on navigation or refresh.
+CodeEditor now persists edits via Cmd+S → `POST /api/files/:projectId/write`
+with a dirty indicator. User edits are saved to the container filesystem.
 
 ### Billing Route Mounting: Auth Applied Inconsistently
 
@@ -336,17 +330,17 @@ However, the billing routes themselves (`src/server/routes/billing.ts`) call
 pattern is inconsistent with other routes (e.g., `/api/projects` applies auth at
 the mount level). This is not broken, but it is a maintenance hazard.
 
-### Chat Persistence (INV-5 gap)
+### ~~Chat Persistence~~ — FIXED (2026-04-08)
 
-The chat system only stores `"[Agent completed task]"` instead of actual assistant
-output. Full conversation history is not persisted, which breaks auditability and
-the ability to resume sessions.
+Chat now accumulates real assistant text from SSE events and saves to DB with
+split token accounting. Full conversation history is persisted.
 
-### Snapshot Save/Restore
+### ~~Snapshot Save/Restore~~ — FIXED (2026-04-08)
 
-The snapshot archive wrapper has an issue that prevents save and restore from
-working end-to-end. The underlying content-addressed storage and integrity
-verification logic is sound, but the archive step fails.
+Docker tar wrapper extraction via `tar-stream` on save, proper wrapping on
+restore. K8s snapshots now use exec+base64 (kubectl cp equivalent) instead of
+Docker-specific APIs. Content-addressed storage with SHA256 integrity
+verification works end-to-end on both runtimes.
 
 ---
 
@@ -443,9 +437,8 @@ intended architecture:
 
 - **Docker is still the default** -- K8s is an alternate path, not the canonical one.
   `src/server/services/workspace.ts:6` defaults to Docker.
-- **Pod template mismatch** -- `k8s/workspace-pod-template.yaml` models a 3-phase
-  lifecycle (initContainer + main + sidecar), but `k8s-workspace.ts:69` only creates
-  workspace + sidecar with no init container.
+- ~~**Pod template mismatch**~~ **FIXED**: `k8s-workspace.ts` now creates the full
+  3-container pod (init + main + sidecar) matching the pod template.
 - **Sidecar is a no-op** -- The actual sidecar is `sleep 86400` (`k8s-workspace.ts:93`),
   not an operational container handling telemetry/health/backup.
 - **No persistent volumes** -- Runtime uses `emptyDir` (`k8s-workspace.ts:111`), not
@@ -490,7 +483,7 @@ latency and error propagation.
 - Set `TTYD_USER` and `TTYD_PASS` in the default Docker Compose config so
   terminal access requires credentials even in local dev.
 - ~~Call `setSecurityLayer()` from `index.ts`~~ -- **DONE** (2026-04-08). `index.ts` line 49 now calls `setSecurityRouteLayer(sharedSecurityLayer)`.
-- Add rate limiting to `/api/security` and `/api/billing` routes.
+- ~~Add rate limiting to `/api/security` and `/api/billing` routes.~~ **DONE**: `rateLimiter("security")` and `rateLimiter("deploy")` applied at mount level in `index.ts`.
 - Evaluate whether `ReadonlyRootfs: true` is feasible with a tmpfs mount for
   `/workspace` and `/tmp`.
 
@@ -502,7 +495,8 @@ Add dedicated Prometheus counters for security events:
 enables native Prometheus-to-AlertManager alerting for security events without
 depending on the Redis Streams -> SIEM path.
 
-### Priority 10: Deploy Route Ownership Verification (INV-6)
+### ~~Priority 10: Deploy Route Ownership Verification~~ — FIXED (2026-04-08)
 
-`POST /api/deploy/:projectId` does not verify that `req.user` owns the project.
-Add the same ownership check used in other project-scoped routes.
+All deploy routes now verify project ownership via `verifyProjectOwnership()`,
+including the `GET /api/deploy/deployment/:id` detail endpoint which now joins
+through the project table to check org membership.

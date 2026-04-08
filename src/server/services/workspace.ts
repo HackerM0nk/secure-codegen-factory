@@ -74,11 +74,30 @@ export async function checkContainerHealth(containerName: string) {
 }
 
 // ── Snapshot operations ───────────────────────────────────────────────────
-// Currently Docker-specific via snapshot.ts. The K8s runtime will need its
-// own implementation (e.g. kubectl cp or direct S3 streaming to pod volumes).
 
-export { saveSnapshot, restoreSnapshot, verifySnapshot } from "./snapshot";
+import * as dockerSnapshot from "./snapshot";
 export type { SnapshotResult } from "./snapshot";
+
+export async function saveSnapshot(containerName: string, projectId: string) {
+  if (RUNTIME === "kubernetes") {
+    const k8s = await getK8s();
+    if ("saveSnapshot" in k8s) return (k8s as any).saveSnapshot(containerName, projectId);
+  }
+  return dockerSnapshot.saveSnapshot(containerName, projectId);
+}
+
+export async function restoreSnapshot(containerName: string, snapshotKey: string, expectedHash?: string) {
+  if (RUNTIME === "kubernetes") {
+    const k8s = await getK8s();
+    if ("restoreSnapshot" in k8s) return (k8s as any).restoreSnapshot(containerName, snapshotKey, expectedHash);
+  }
+  return dockerSnapshot.restoreSnapshot(containerName, snapshotKey, expectedHash);
+}
+
+export async function verifySnapshot(snapshotKey: string, expectedHash: string) {
+  // Verification is runtime-agnostic (S3 only)
+  return dockerSnapshot.verifySnapshot(snapshotKey, expectedHash);
+}
 
 export async function getTerminalCredentials(containerName: string) {
   if (RUNTIME === "kubernetes") {

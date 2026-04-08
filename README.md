@@ -19,7 +19,7 @@ Defense-in-depth controls wrapping untrusted LLMs in sandboxed workspaces
 
 ---
 
-Users describe an app in natural language. An AI agent builds it in an isolated container with live preview, code editor, and terminal. Every stage — input, inference, code generation, tool execution, deployment — is wrapped by independent security controls that **assume the model is adversarial**.
+Users describe an app in natural language. An AI agent builds it in an isolated container with live preview, code editor, and terminal. Every stage — input, inference, code generation, tool execution, deployment — is wrapped by independent security controls because **the model has no built-in security — it will generate whatever is requested**.
 
 ## Why This Exists
 
