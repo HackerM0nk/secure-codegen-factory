@@ -66,19 +66,37 @@ const COMPLEX_KEYWORDS = [
 ];
 
 // Default model map -- override via env vars or config
-// Model routing: Haiku for trivial edits, Sonnet for features, Opus for architecture
+// Model routing: lighter model for trivial edits, best model for architecture
+// When DEFAULT_LLM_PROVIDER=ollama, fallback models are also Ollama-friendly
+const DEFAULT_OLLAMA_MODEL = "qwen2.5-coder:7b";
+
+function defaultModelForTier(tier: "simple" | "medium" | "complex"): string {
+  const provider = process.env.DEFAULT_LLM_PROVIDER || "ollama";
+  if (provider === "ollama") return DEFAULT_OLLAMA_MODEL;
+  if (provider === "anthropic" || provider === "bedrock") {
+    const claude: Record<string, string> = {
+      simple: "claude-haiku-4-5-20251001",
+      medium: "claude-sonnet-4-20250514",
+      complex: "claude-sonnet-4-20250514",
+    };
+    return claude[tier];
+  }
+  if (provider === "openai") return "gpt-4o";
+  return DEFAULT_OLLAMA_MODEL;
+}
+
 const MODEL_MAP: Record<Complexity, ModelSelection> = {
   simple: {
-    provider: process.env.SIMPLE_MODEL_PROVIDER || process.env.DEFAULT_LLM_PROVIDER || "bedrock",
-    model: process.env.SIMPLE_MODEL || "claude-haiku-3.5",
+    provider: process.env.SIMPLE_MODEL_PROVIDER || process.env.DEFAULT_LLM_PROVIDER || "ollama",
+    model: process.env.SIMPLE_MODEL || defaultModelForTier("simple"),
   },
   medium: {
-    provider: process.env.MEDIUM_MODEL_PROVIDER || process.env.DEFAULT_LLM_PROVIDER || "bedrock",
-    model: process.env.MEDIUM_MODEL || "claude-sonnet-4-20250514",
+    provider: process.env.MEDIUM_MODEL_PROVIDER || process.env.DEFAULT_LLM_PROVIDER || "ollama",
+    model: process.env.MEDIUM_MODEL || defaultModelForTier("medium"),
   },
   complex: {
-    provider: process.env.COMPLEX_MODEL_PROVIDER || process.env.DEFAULT_LLM_PROVIDER || "bedrock",
-    model: process.env.COMPLEX_MODEL || "claude-opus-4",
+    provider: process.env.COMPLEX_MODEL_PROVIDER || process.env.DEFAULT_LLM_PROVIDER || "ollama",
+    model: process.env.COMPLEX_MODEL || defaultModelForTier("complex"),
   },
 };
 

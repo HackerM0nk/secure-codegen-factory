@@ -75,6 +75,18 @@ fi
 
 log "Checking LLM provider..."
 
+# Recommended models with tool-calling support (required for the agent loop)
+RECOMMENDED_MODELS=(
+  "qwen2.5-coder:7b"
+  "qwen2.5-coder:14b"
+  "llama3.1:8b"
+  "deepseek-coder-v2:16b"
+  "gemma3:12b"
+  "phi4:14b"
+  "mistral:7b"
+  "codestral:22b"
+)
+
 if command -v ollama >/dev/null 2>&1; then
   ok "Ollama installed"
   # Ensure Ollama is running
@@ -83,8 +95,64 @@ if command -v ollama >/dev/null 2>&1; then
     ollama serve &>/dev/null &
     sleep 3
   fi
-  # Pull default model if not present
-  OLLAMA_MODEL="${OLLAMA_MODEL:-qwen2.5-coder:7b}"
+
+  # Check if OLLAMA_MODEL is already set (env var or re-run)
+  if [ -z "${OLLAMA_MODEL:-}" ]; then
+    # Show locally available models
+    AVAILABLE=$(ollama list 2>/dev/null | tail -n +2 | awk '{print $1}' || true)
+    if [ -n "$AVAILABLE" ]; then
+      echo ""
+      log "Models already pulled locally:"
+      echo "$AVAILABLE" | while read -r m; do echo "    $m"; done
+      echo ""
+    fi
+
+    # Check if any recommended model is already available
+    FOUND_MODEL=""
+    for m in "${RECOMMENDED_MODELS[@]}"; do
+      if echo "$AVAILABLE" | grep -q "^${m}$"; then
+        FOUND_MODEL="$m"
+        break
+      fi
+    done
+
+    if [ -n "$FOUND_MODEL" ]; then
+      OLLAMA_MODEL="$FOUND_MODEL"
+      ok "Using locally available model: $OLLAMA_MODEL"
+    else
+      # Interactive model selection (only when running in a terminal)
+      if [ -t 0 ]; then
+        echo ""
+        log "Recommended FOSS models (all support tool calling):"
+        echo ""
+        echo "    1) qwen2.5-coder:7b    — Best code quality for size, ~4GB (default)"
+        echo "    2) qwen2.5-coder:14b   — Better quality, needs 16GB+ RAM"
+        echo "    3) llama3.1:8b          — Good all-round, Meta"
+        echo "    4) deepseek-coder-v2:16b — Strong code gen, needs 16GB+ RAM"
+        echo "    5) gemma3:12b           — Google, good for code"
+        echo "    6) phi4:14b             — Microsoft, strong reasoning"
+        echo "    7) mistral:7b           — Fast general purpose"
+        echo "    8) codestral:22b        — Mistral code model, needs 24GB+ RAM"
+        echo ""
+        read -rp "  Choose model [1-8, or type a model name] (default: 1): " MODEL_CHOICE
+        case "${MODEL_CHOICE:-1}" in
+          1) OLLAMA_MODEL="qwen2.5-coder:7b" ;;
+          2) OLLAMA_MODEL="qwen2.5-coder:14b" ;;
+          3) OLLAMA_MODEL="llama3.1:8b" ;;
+          4) OLLAMA_MODEL="deepseek-coder-v2:16b" ;;
+          5) OLLAMA_MODEL="gemma3:12b" ;;
+          6) OLLAMA_MODEL="phi4:14b" ;;
+          7) OLLAMA_MODEL="mistral:7b" ;;
+          8) OLLAMA_MODEL="codestral:22b" ;;
+          *) OLLAMA_MODEL="$MODEL_CHOICE" ;;
+        esac
+      else
+        OLLAMA_MODEL="qwen2.5-coder:7b"
+      fi
+    fi
+  fi
+
+  # Pull selected model if not present
   if ollama list 2>/dev/null | grep -q "$OLLAMA_MODEL"; then
     ok "Model $OLLAMA_MODEL available"
   else
@@ -96,6 +164,7 @@ else
   warn "Ollama not found — install from https://ollama.com"
   warn "Without an LLM provider, the agent loop won't work."
   warn "Alternative: set ANTHROPIC_API_KEY or OPENAI_API_KEY in .env after setup."
+  OLLAMA_MODEL="qwen2.5-coder:7b"
 fi
 
 # ── Environment file ─────────────────────────────────────────────────────────
@@ -110,6 +179,20 @@ if [ ! -f .env ]; then
   fi
 else
   ok ".env already exists"
+fi
+
+# Write selected model into .env (portable sed for macOS/Linux)
+if [ -n "${OLLAMA_MODEL:-}" ]; then
+  if [ "$(uname)" = "Darwin" ]; then
+    sed -i '' "s|^SIMPLE_MODEL=.*|SIMPLE_MODEL=$OLLAMA_MODEL|" .env
+    sed -i '' "s|^MEDIUM_MODEL=.*|MEDIUM_MODEL=$OLLAMA_MODEL|" .env
+    sed -i '' "s|^COMPLEX_MODEL=.*|COMPLEX_MODEL=$OLLAMA_MODEL|" .env
+  else
+    sed -i "s|^SIMPLE_MODEL=.*|SIMPLE_MODEL=$OLLAMA_MODEL|" .env
+    sed -i "s|^MEDIUM_MODEL=.*|MEDIUM_MODEL=$OLLAMA_MODEL|" .env
+    sed -i "s|^COMPLEX_MODEL=.*|COMPLEX_MODEL=$OLLAMA_MODEL|" .env
+  fi
+  ok "Configured .env with model: $OLLAMA_MODEL"
 fi
 
 # ── Install dependencies ─────────────────────────────────────────────────────

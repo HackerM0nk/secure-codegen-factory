@@ -128,7 +128,9 @@ export class OpenAICompatProvider implements LLMProvider {
     }
 
     let stopReason: CompletionResult["stopReason"] = "end_turn";
+    // OpenAI uses "tool_calls", some Ollama models return "stop" even with tool calls present
     if (choice.finish_reason === "tool_calls") stopReason = "tool_use";
+    if (choice.message.tool_calls && choice.message.tool_calls.length > 0) stopReason = "tool_use";
     if (choice.finish_reason === "length") stopReason = "max_tokens";
 
     return {

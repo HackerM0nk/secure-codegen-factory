@@ -7,6 +7,9 @@ interface ModelRate {
   cachedInputPer1K: number;
 }
 
+// Zero-cost rate for local/FOSS models (Ollama, llama.cpp, etc.)
+const LOCAL_MODEL_RATE: ModelRate = { inputPer1K: 0, outputPer1K: 0, cachedInputPer1K: 0 };
+
 const MODEL_RATES: Record<string, ModelRate> = {
   // Anthropic models (4x markup over raw API cost)
   "claude-opus-4-6": { inputPer1K: 0.060, outputPer1K: 0.300, cachedInputPer1K: 0.006 },
@@ -36,7 +39,9 @@ export function calculateLLMCost(
   outputTokens: number,
   cachedTokens = 0
 ): CostBreakdown {
-  const rate = MODEL_RATES[model] || MODEL_RATES["claude-sonnet-4-6"];
+  // Local/FOSS models (Ollama) contain a colon (e.g. "qwen2.5-coder:7b") or aren't in the rate table
+  const isLocalModel = model.includes(":") || (!MODEL_RATES[model] && process.env.DEFAULT_LLM_PROVIDER === "ollama");
+  const rate = isLocalModel ? LOCAL_MODEL_RATE : (MODEL_RATES[model] || MODEL_RATES["claude-sonnet-4-6"]);
 
   const inputTokenCost = (inputTokens / 1000) * rate.inputPer1K;
   const outputTokenCost = (outputTokens / 1000) * rate.outputPer1K;
