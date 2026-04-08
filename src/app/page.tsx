@@ -65,7 +65,7 @@ export default function HomePage() {
     fetch("/api/projects", {
       headers: { Authorization: `Bearer ${token}` },
     })
-      .then((r) => r.json())
+      .then((r) => r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`)))
       .then((data) => setProjects(data.data || data || []))
       .catch(() => setProjects([]))
       .finally(() => setLoading(false));
@@ -73,7 +73,7 @@ export default function HomePage() {
     fetch("/api/billing/balance", {
       headers: { Authorization: `Bearer ${token}` },
     })
-      .then((r) => r.json())
+      .then((r) => r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`)))
       .then((data) => setCredits(data.credits ?? null))
       .catch(() => {});
   }, [token, authLoading]);

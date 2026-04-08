@@ -157,7 +157,7 @@ export function ChatPanel({ projectId }: { projectId: string }) {
     fetch(`${API_BASE}/api/agent/${projectId}/history`, {
       headers: { Authorization: `Bearer ${token}` },
     })
-      .then((r) => r.json())
+      .then((r) => r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`)))
       .then((data) => {
         const msgs = data.messages || data.conversations?.[0]?.messages || [];
         setMessages(msgs.map((m: any) => ({ role: m.role, content: m.content })));
@@ -194,7 +194,7 @@ export function ChatPanel({ projectId }: { projectId: string }) {
       });
 
       if (!res.ok && !res.headers.get("content-type")?.includes("text/event-stream")) {
-        const err = await res.json();
+        const err = await res.json().catch(() => ({}));
         throw new Error(err.error || `HTTP ${res.status}`);
       }
 

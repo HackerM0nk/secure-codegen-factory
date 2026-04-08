@@ -78,7 +78,7 @@ app.use("/api/projects", authMiddleware(), rateLimiter("project"), projectRouter
 app.use("/api/workspaces", authMiddleware(), rateLimiter("workspace"), workspaceRouter);
 app.use("/api/agent", authMiddleware(), rateLimiter("agent"), agentRouter);
 app.use("/api/files", authMiddleware(), filesRouter);
-app.use("/api/billing", billingRouter);
+app.use("/api/billing", authMiddleware(), billingRouter);
 app.use("/api/security", authMiddleware(), rateLimiter("security"), securityRouter);
 app.use("/api/deploy", authMiddleware(), rateLimiter("deploy"), deployRouter);
 
@@ -95,6 +95,11 @@ app.get("/api/health", (_, res) => {
       redis: redis.status === "ready" ? "ok" : "error",
     },
   });
+});
+
+// 404 handler — return JSON, not Express default HTML
+app.use((req: express.Request, res: express.Response) => {
+  res.status(404).json({ error: "Not found", path: req.path, correlationId: req.correlationId });
 });
 
 // Error handler

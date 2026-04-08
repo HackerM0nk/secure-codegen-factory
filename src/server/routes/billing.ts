@@ -1,11 +1,10 @@
 import { Router } from "express";
-import { authMiddleware } from "../middleware/auth";
 import { getBalance, getUsage } from "../billing/ledger";
 
 const router = Router();
 
 // GET /api/billing/balance
-router.get("/balance", authMiddleware(), async (req, res) => {
+router.get("/balance", async (req, res) => {
   try {
     const balance = await getBalance(req.user!.orgId);
     res.json(balance);
@@ -15,7 +14,7 @@ router.get("/balance", authMiddleware(), async (req, res) => {
 });
 
 // GET /api/billing/usage?period=current_month|last_30d|all
-router.get("/usage", authMiddleware(), async (req, res) => {
+router.get("/usage", async (req, res) => {
   const period = (req.query.period as string) || "current_month";
   let since: Date;
 

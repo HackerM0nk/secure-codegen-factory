@@ -32,8 +32,10 @@ export default function ProjectPage() {
       const res = await fetch(`/api/projects/${projectId}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      const data = await res.json();
-      setProject(data);
+      if (res.ok) {
+        const data = await res.json();
+        setProject(data);
+      }
     } catch {}
     setLoading(false);
   };
@@ -56,7 +58,7 @@ export default function ProjectPage() {
         body: JSON.stringify({ projectId }),
       });
       if (!res.ok) {
-        const err = await res.json();
+        const err = await res.json().catch(() => ({}));
         throw new Error(err.error || "Failed to start workspace");
       }
       await fetchProject();

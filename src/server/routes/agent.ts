@@ -79,6 +79,30 @@ function getLLMRouter(req: Request): LLMRouter {
   return llmRouterInstance;
 }
 
+// ── GET /api/agent/llm-health — LLM provider health scores ──────────────
+// Defined BEFORE dynamic /:projectId routes to avoid shadowing
+
+router.get("/llm-health", async (_req: Request, res: Response) => {
+  if (!llmRouterInstance) {
+    return res.json({ providers: [] });
+  }
+  try {
+    const scores = await llmRouterInstance.getHealth();
+    const providers = scores.map((s) => ({
+      name: s.provider,
+      score: s.score,
+      weight: s.weight,
+      rpm: s.rpm,
+      rpmLimit: 0,
+      errors: s.errors,
+      successes: s.successes,
+    }));
+    return res.json({ providers });
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
 // ── POST /api/agent/:projectId/message — Send message with SSE streaming ──
 
 router.post("/:projectId/message", async (req: Request<{ projectId: string }>, res: Response) => {
@@ -339,29 +363,6 @@ router.get("/:projectId/conversations", async (req: Request<{ projectId: string 
       lastMessage: c.messages[0] || null,
     }))
   );
-});
-
-// ── GET /api/agent/llm-health — LLM provider health scores ──────────────
-
-router.get("/llm-health", async (_req: Request, res: Response) => {
-  if (!llmRouterInstance) {
-    return res.json({ providers: [] });
-  }
-  try {
-    const scores = await llmRouterInstance.getHealth();
-    const providers = scores.map((s) => ({
-      name: s.provider,
-      score: s.score,
-      weight: s.weight,
-      rpm: s.rpm,
-      rpmLimit: 0,
-      errors: s.errors,
-      successes: s.successes,
-    }));
-    return res.json({ providers });
-  } catch (err: any) {
-    return res.status(500).json({ error: err.message });
-  }
 });
 
 export default router;
