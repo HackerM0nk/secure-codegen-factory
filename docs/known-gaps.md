@@ -364,7 +364,7 @@ a warning. The workspace is likely usable, but the ready check is dead code.
 The codebase has org/membership models in Prisma and org-scoped queries in the
 files route, but there is no network-level isolation between workspace containers
 belonging to different orgs. All containers share the same Docker network
-(`ai-dev-factory-v2_devfactory-v2`). A container from Org A can reach containers
+(`devfactory-net`). A container from Org A can reach containers
 from Org B via the shared network.
 
 ### Deployment Pipeline (INV-6 note)

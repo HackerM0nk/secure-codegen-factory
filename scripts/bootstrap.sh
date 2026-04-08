@@ -61,7 +61,7 @@ if command -v ollama >/dev/null 2>&1; then
     sleep 3
   fi
   # Pull default model if not present
-  OLLAMA_MODEL="${OLLAMA_MODEL:-qwen3:0.6b}"
+  OLLAMA_MODEL="${OLLAMA_MODEL:-qwen2.5-coder:7b}"
   if ollama list 2>/dev/null | grep -q "$OLLAMA_MODEL"; then
     ok "Model $OLLAMA_MODEL available"
   else

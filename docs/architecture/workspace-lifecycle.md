@@ -37,7 +37,7 @@ All workspace operations go through these functions:
 
 Containers are created with:
 - **Image**: `WORKSPACE_IMAGE` env var (default: `devfactory-workspace:latest`)
-- **Network**: `ai-dev-factory-v2_devfactory-v2` (shared with other services)
+- **Network**: `devfactory-net` (shared with other services)
 - **Name format**: `devfactory-v2-ws-<projectId>`
 - **Exposed ports**: 3000 (preview), 8080 (terminal/ttyd)
 

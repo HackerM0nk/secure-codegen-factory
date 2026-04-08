@@ -41,7 +41,7 @@ docker compose -f docker-compose.yml -f docker-compose.monitoring.yml up -d
 
 **LocalStack**: Provides S3, SQS, and IAM emulation. Init scripts run from `./localstack-init/` on startup. Test credentials: `test/test`.
 
-**Traefik**: Reads Docker labels to auto-configure routing for workspace containers. Watches the `ai-dev-factory-v2_devfactory-v2` network. Dashboard available at port 8190.
+**Traefik**: Reads Docker labels to auto-configure routing for workspace containers. Watches the `devfactory-net` network. Dashboard available at port 8190.
 
 **Keycloak**: Runs in dev mode. Imports realm configuration from `./keycloak/`. Depends on PostgreSQL (uses a separate `keycloak` schema). Admin credentials: `admin/admin`.
 
