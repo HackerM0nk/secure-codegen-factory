@@ -1,4 +1,4 @@
-# CLAUDE.md — secure-codegen
+# CLAUDE.md — secure-codegen-factory
 
 ## What This Is
 

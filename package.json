@@ -1,11 +1,11 @@
 {
-  "name": "secure-codegen",
+  "name": "secure-codegen-factory",
   "version": "2.0.0",
   "private": true,
   "description": "Security-first AI code generation platform with 16 defense-in-depth layers wrapping untrusted LLMs in sandboxed workspaces",
   "author": "hackerm0nk",
   "keywords": ["ai", "code-generation", "security", "llm", "defense-in-depth", "sandbox", "docker", "kubernetes"],
-  "repository": { "type": "git", "url": "https://github.com/hackerm0nk/secure-codegen" },
+  "repository": { "type": "git", "url": "https://github.com/hackerm0nk/secure-codegen-factory" },
   "scripts": {
     "dev": "concurrently \"npx tsx watch src/server/index.ts\" \"next dev -p 3100\"",
     "dev:server": "npx tsx watch src/server/index.ts",

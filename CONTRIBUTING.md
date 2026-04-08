@@ -1,4 +1,4 @@
-# Contributing to secure-codegen
+# Contributing to secure-codegen-factory
 
 Thank you for your interest in contributing. This project takes a security-first approach to AI code generation — contributions that strengthen the defense-in-depth model are especially welcome.
 
@@ -6,8 +6,8 @@ Thank you for your interest in contributing. This project takes a security-first
 
 ```bash
 # Clone and bootstrap
-git clone https://github.com/hackerm0nk/secure-codegen.git
-cd secure-codegen
+git clone https://github.com/hackerm0nk/secure-codegen-factory.git
+cd secure-codegen-factory
 ./scripts/bootstrap.sh
 ```
 

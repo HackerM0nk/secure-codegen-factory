@@ -1,4 +1,4 @@
-# secure-codegen
+# secure-codegen-factory
 
 > Security-first AI code generation platform — 16 defense-in-depth layers wrapping untrusted LLMs in sandboxed workspaces.
 
@@ -588,7 +588,7 @@ npm run dev                             # backend (4100) + frontend (3100)
 ## Project Structure
 
 ```
-secure-codegen/
+secure-codegen-factory/
 ├── src/
 │   ├── app/                          # Next.js frontend
 │   │   ├── page.tsx                  # Home — project list + create

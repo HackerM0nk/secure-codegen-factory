@@ -1,5 +1,5 @@
 #!/bin/bash
-# bootstrap.sh — One-command setup for secure-codegen
+# bootstrap.sh — One-command setup for secure-codegen-factory
 # Usage: ./scripts/bootstrap.sh          # Docker mode (default)
 #        ./scripts/bootstrap.sh --k8s    # Kind cluster with full security controls
 set -euo pipefail
@@ -319,7 +319,7 @@ fi
 
 echo ""
 echo -e "${BOLD}═══════════════════════════════════════════════════════════════${NC}"
-echo -e "${GREEN}${BOLD}  secure-codegen — Ready${NC}"
+echo -e "${GREEN}${BOLD}  secure-codegen-factory — Ready${NC}"
 echo -e "${BOLD}═══════════════════════════════════════════════════════════════${NC}"
 echo ""
 echo -e "  ${BOLD}Frontend${NC}       http://localhost:3100"

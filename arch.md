@@ -1,4 +1,4 @@
-# secure-codegen - Architecture
+# secure-codegen-factory - Architecture
 
 ## Overview
 
