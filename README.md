@@ -21,10 +21,6 @@ Defense-in-depth controls wrapping untrusted LLMs in sandboxed workspaces
 
 Users describe an app in natural language. An AI agent builds it in an isolated container with live preview, code editor, and terminal. Every stage — input, inference, code generation, tool execution, deployment — is wrapped by independent security controls that **assume the model is adversarial**.
 
-<a href="docs/diagrams/hero-pipeline-animated.svg">
-  <img src="docs/diagrams/hero-pipeline-animated.svg" alt="Defense-in-Depth Security Pipeline" width="100%"/>
-</a>
-
 ## Why This Exists
 
 > **Core thesis: treat the LLM as an untrusted, non-deterministic actor.**
