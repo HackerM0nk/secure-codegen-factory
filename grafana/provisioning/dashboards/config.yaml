@@ -1,0 +1,12 @@
+apiVersion: 1
+
+providers:
+  - name: DevFactory
+    orgId: 1
+    folder: DevFactory
+    type: file
+    disableDeletion: false
+    editable: true
+    options:
+      path: /var/lib/grafana/dashboards
+      foldersFromFilesStructure: false

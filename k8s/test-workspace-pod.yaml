@@ -1,0 +1,87 @@
+# Test workspace pod — validates the 3-container model, security context, and network policies
+apiVersion: v1
+kind: Pod
+metadata:
+  name: ws-test-001
+  namespace: devfactory-workspaces
+  labels:
+    app: workspace
+    project-id: test-project
+    workspace-id: test-001
+spec:
+  serviceAccountName: workspace-sa
+  automountServiceAccountToken: false
+  terminationGracePeriodSeconds: 10
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 1001
+    runAsGroup: 1001
+    fsGroup: 1001
+    seccompProfile:
+      type: RuntimeDefault
+
+  # Skip init container for test (no S3 snapshot)
+  containers:
+    # Main workspace — use devfactory-workspace image if loaded, else nginx
+    - name: workspace
+      image: devfactory-workspace:latest
+      imagePullPolicy: Never
+      ports:
+        - containerPort: 3000
+          name: preview
+        - containerPort: 8080
+          name: terminal
+      volumeMounts:
+        - name: workspace-vol
+          mountPath: /workspace
+        - name: tmp-vol
+          mountPath: /tmp
+      resources:
+        requests:
+          cpu: 250m
+          memory: 256Mi
+        limits:
+          cpu: "1"
+          memory: 1Gi
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1001
+        allowPrivilegeEscalation: false
+        readOnlyRootFilesystem: false
+        capabilities:
+          drop: ["ALL"]
+        seccompProfile:
+          type: RuntimeDefault
+
+    # Sidecar — lightweight alpine for testing (real: distroless Go)
+    - name: sidecar
+      image: alpine:3.19
+      command: ["sleep", "3600"]
+      volumeMounts:
+        - name: workspace-vol
+          mountPath: /workspace
+          readOnly: true
+      resources:
+        requests:
+          cpu: 50m
+          memory: 32Mi
+        limits:
+          cpu: 100m
+          memory: 64Mi
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1001
+        allowPrivilegeEscalation: false
+        readOnlyRootFilesystem: true
+        capabilities:
+          drop: ["ALL"]
+        seccompProfile:
+          type: RuntimeDefault
+
+  volumes:
+    - name: workspace-vol
+      emptyDir:
+        sizeLimit: 2Gi
+    - name: tmp-vol
+      emptyDir:
+        sizeLimit: 512Mi

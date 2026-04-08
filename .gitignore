@@ -1,0 +1,45 @@
+# Dependencies
+node_modules/
+
+# Environment (contains secrets)
+.env
+.env.local
+.env.*.local
+
+# Build output
+.next/
+dist/
+out/
+
+# Database
+prisma/*.db
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Audit logs (may contain sensitive data)
+.audit/
+
+# Test output
+coverage/
+test-results/
+playwright-report/
+tests/e2e-security/reports/
+pipeline-report-*.json
+
+# Build artifacts
+tsconfig.tsbuildinfo
+
+# Docker volumes (if mounted locally)
+docker-data/

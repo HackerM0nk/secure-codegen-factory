@@ -1,0 +1,24 @@
+# TracingPolicy: Monitor network connections from workspace pods
+# Detects: SSRF to metadata endpoint
+apiVersion: cilium.io/v1alpha1
+kind: TracingPolicyNamespaced
+metadata:
+  name: workspace-network-monitor
+  namespace: devfactory-workspaces
+spec:
+  kprobes:
+    # Kill connections to cloud metadata endpoints (SSRF)
+    - call: __arm64_sys_connect
+      syscall: true
+      args:
+        - index: 1
+          type: sockaddr
+      selectors:
+        - matchArgs:
+            - index: 1
+              operator: SAddr
+              values:
+                - 169.254.169.254
+                - 100.100.100.200
+          matchActions:
+            - action: Sigkill

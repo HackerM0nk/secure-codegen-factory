@@ -1,0 +1,158 @@
+# 3-container pod: init (snapshot restore) + main (workspace) + sidecar (backup)
+# Template — ${WORKSPACE_ID}, ${PROJECT_ID}, ${SNAPSHOT_KEY} are substituted at runtime
+apiVersion: v1
+kind: Pod
+metadata:
+  name: "ws-${WORKSPACE_ID}"
+  namespace: devfactory-workspaces
+  labels:
+    app: workspace
+    project-id: "${PROJECT_ID}"
+    workspace-id: "${WORKSPACE_ID}"
+  annotations:
+    devfactory.io/created-at: "${CREATED_AT}"
+spec:
+  serviceAccountName: workspace-sa
+  automountServiceAccountToken: false
+  terminationGracePeriodSeconds: 30
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 1001
+    runAsGroup: 1001
+    fsGroup: 1001
+    seccompProfile:
+      type: RuntimeDefault
+
+  # Init container: restore workspace snapshot from S3
+  initContainers:
+    - name: snapshot-restore
+      image: amazon/aws-cli:2.15.0
+      command:
+        - /bin/sh
+        - -c
+        - |
+          if [ -n "${SNAPSHOT_KEY}" ]; then
+            echo "Restoring snapshot: ${SNAPSHOT_KEY}"
+            aws --endpoint-url ${S3_ENDPOINT} s3 cp "s3://${S3_BUCKET}/${SNAPSHOT_KEY}" /workspace/snapshot.tar.gz
+            cd /workspace && tar xzf snapshot.tar.gz && rm snapshot.tar.gz
+            echo "Snapshot restored"
+          else
+            echo "No snapshot to restore, starting fresh"
+            mkdir -p /workspace
+          fi
+      env:
+        - name: S3_ENDPOINT
+          value: "${S3_ENDPOINT}"
+        - name: S3_BUCKET
+          value: "${S3_BUCKET}"
+        - name: AWS_ACCESS_KEY_ID
+          value: "${AWS_ACCESS_KEY_ID}"
+        - name: AWS_SECRET_ACCESS_KEY
+          value: "${AWS_SECRET_ACCESS_KEY}"
+        - name: AWS_DEFAULT_REGION
+          value: "us-east-1"
+      volumeMounts:
+        - name: workspace-vol
+          mountPath: /workspace
+      resources:
+        limits:
+          cpu: 500m
+          memory: 256Mi
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1001
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop: ["ALL"]
+        seccompProfile:
+          type: RuntimeDefault
+
+  containers:
+    # Main workspace container: Node.js + ttyd terminal
+    - name: workspace
+      image: "${WORKSPACE_IMAGE}"
+      ports:
+        - containerPort: 3000
+          name: preview
+          protocol: TCP
+        - containerPort: 8080
+          name: terminal
+          protocol: TCP
+      volumeMounts:
+        - name: workspace-vol
+          mountPath: /workspace
+        - name: tmp-vol
+          mountPath: /tmp
+      resources:
+        requests:
+          cpu: 500m
+          memory: 512Mi
+        limits:
+          cpu: "2"
+          memory: 2Gi
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1001
+        allowPrivilegeEscalation: false
+        readOnlyRootFilesystem: false
+        capabilities:
+          drop: ["ALL"]
+        seccompProfile:
+          type: RuntimeDefault
+      readinessProbe:
+        httpGet:
+          path: /
+          port: 8080
+        initialDelaySeconds: 5
+        periodSeconds: 10
+      livenessProbe:
+        httpGet:
+          path: /
+          port: 8080
+        initialDelaySeconds: 15
+        periodSeconds: 30
+
+    # Sidecar: distroless Go backup agent
+    - name: sidecar
+      image: "${SIDECAR_IMAGE}"
+      ports:
+        - containerPort: 9090
+          name: sidecar-api
+          protocol: TCP
+      volumeMounts:
+        - name: workspace-vol
+          mountPath: /workspace
+          readOnly: true
+      resources:
+        requests:
+          cpu: 100m
+          memory: 64Mi
+        limits:
+          cpu: 250m
+          memory: 128Mi
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1001
+        allowPrivilegeEscalation: false
+        readOnlyRootFilesystem: true
+        capabilities:
+          drop: ["ALL"]
+        seccompProfile:
+          type: RuntimeDefault
+      env:
+        - name: S3_ENDPOINT
+          value: "${S3_ENDPOINT}"
+        - name: S3_BUCKET
+          value: "${S3_BUCKET}"
+        - name: PROJECT_ID
+          value: "${PROJECT_ID}"
+        - name: WORKSPACE_ID
+          value: "${WORKSPACE_ID}"
+
+  volumes:
+    - name: workspace-vol
+      emptyDir:
+        sizeLimit: 5Gi
+    - name: tmp-vol
+      emptyDir:
+        sizeLimit: 1Gi

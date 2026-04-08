@@ -1,0 +1,97 @@
+{
+  "id": "devfactory",
+  "realm": "devfactory",
+  "enabled": true,
+  "displayName": "DevFactory V2",
+  "sslRequired": "none",
+  "registrationAllowed": false,
+  "loginWithEmailAllowed": true,
+  "duplicateEmailsAllowed": false,
+  "resetPasswordAllowed": true,
+  "editUsernameAllowed": false,
+  "bruteForceProtected": true,
+  "roles": {
+    "realm": [
+      { "name": "admin", "description": "Full platform administrator", "composite": false },
+      { "name": "user", "description": "Standard platform user", "composite": false },
+      { "name": "viewer", "description": "Read-only access", "composite": false }
+    ]
+  },
+  "groups": [
+    { "name": "default-org", "path": "/default-org", "realmRoles": ["user"] }
+  ],
+  "clients": [
+    {
+      "clientId": "devfactory-api",
+      "name": "DevFactory API",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "dev-secret",
+      "bearerOnly": false,
+      "standardFlowEnabled": true,
+      "serviceAccountsEnabled": true,
+      "directAccessGrantsEnabled": true,
+      "redirectUris": ["http://localhost:4100/*"],
+      "webOrigins": ["http://localhost:4100"],
+      "defaultClientScopes": ["openid", "profile", "email", "roles"],
+      "protocolMappers": [
+        {
+          "name": "realm-roles",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-realm-role-mapper",
+          "consentRequired": false,
+          "config": {
+            "multivalued": "true",
+            "userinfo.token.claim": "true",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "claim.name": "realm_roles",
+            "jsonType.label": "String"
+          }
+        }
+      ]
+    },
+    {
+      "clientId": "devfactory-web",
+      "name": "DevFactory Web",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": true,
+      "clientAuthenticatorType": "client-secret",
+      "bearerOnly": false,
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": true,
+      "redirectUris": [
+        "http://localhost:3100/*",
+        "http://localhost:5173/*"
+      ],
+      "webOrigins": [
+        "http://localhost:3100",
+        "http://localhost:5173"
+      ],
+      "defaultClientScopes": ["openid", "profile", "email", "roles"]
+    }
+  ],
+  "users": [
+    {
+      "username": "dev@local.dev",
+      "email": "dev@local.dev",
+      "emailVerified": true,
+      "enabled": true,
+      "firstName": "Dev",
+      "lastName": "Admin",
+      "credentials": [
+        { "type": "password", "value": "password", "temporary": false }
+      ],
+      "realmRoles": ["admin", "user"],
+      "groups": ["/default-org"]
+    }
+  ],
+  "defaultDefaultClientScopes": ["openid", "profile", "email"],
+  "accessTokenLifespan": 3600,
+  "ssoSessionIdleTimeout": 1800,
+  "ssoSessionMaxLifespan": 36000
+}

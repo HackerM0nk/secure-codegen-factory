@@ -1,0 +1,65 @@
+FROM golang:1.22-alpine AS builder
+
+WORKDIR /build
+
+RUN cat > main.go << 'GOEOF'
+package main
+
+import (
+	"fmt"
+	"log"
+	"net/http"
+	"os"
+	"os/exec"
+	"time"
+)
+
+func main() {
+	backupInterval := 60 * time.Second
+	s3Endpoint := os.Getenv("S3_ENDPOINT")
+	s3Bucket := os.Getenv("S3_BUCKET")
+	projectID := os.Getenv("PROJECT_ID")
+
+	http.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(200)
+		fmt.Fprintf(w, "ok")
+	})
+
+	go func() {
+		log.Fatal(http.ListenAndServe(":9090", nil))
+	}()
+
+	log.Printf("Sidecar started. Backup interval: %s", backupInterval)
+
+	ticker := time.NewTicker(backupInterval)
+	defer ticker.Stop()
+
+	for range ticker.C {
+		if s3Endpoint == "" || s3Bucket == "" || projectID == "" {
+			continue
+		}
+		snapshotKey := fmt.Sprintf("incremental/%s/%d.tar.gz", projectID, time.Now().Unix())
+		cmd := exec.Command("sh", "-c",
+			fmt.Sprintf("tar -czf /tmp/backup.tar.gz -C /workspace . && "+
+				"aws --endpoint-url %s s3 cp /tmp/backup.tar.gz s3://%s/%s",
+				s3Endpoint, s3Bucket, snapshotKey))
+		if out, err := cmd.CombinedOutput(); err != nil {
+			log.Printf("Backup failed: %v - %s", err, string(out))
+		} else {
+			log.Printf("Backup complete: %s", snapshotKey)
+		}
+	}
+}
+GOEOF
+
+RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o /sidecar main.go
+
+FROM gcr.io/distroless/static-debian12:nonroot
+
+COPY --from=builder /sidecar /sidecar
+
+USER 65534:65534
+
+EXPOSE 9090
+
+ENTRYPOINT ["/sidecar"]

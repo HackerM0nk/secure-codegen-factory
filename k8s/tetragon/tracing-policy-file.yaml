@@ -1,0 +1,50 @@
+# TracingPolicy: Monitor sensitive file access in workspace pods
+# Detects and enforces: SA token access, shadow file reads, proc/mem access
+apiVersion: cilium.io/v1alpha1
+kind: TracingPolicyNamespaced
+metadata:
+  name: workspace-file-monitor
+  namespace: devfactory-workspaces
+spec:
+  kprobes:
+    # Monitor open/openat for sensitive files
+    - call: __arm64_sys_openat
+      syscall: true
+      args:
+        - index: 1
+          type: string
+      selectors:
+        - matchArgs:
+            - index: 1
+              operator: Prefix
+              values:
+                # Credential files
+                - /etc/shadow
+                - /etc/gshadow
+                # Process memory
+                - /proc/self/mem
+                - /proc/1/mem
+                # Docker socket
+                - /var/run/docker.sock
+                - /run/containerd/containerd.sock
+                # Host filesystem
+                - /host/
+                - /rootfs/
+          matchActions:
+            - action: Post
+              rateLimit: "1s"
+    # ENFORCE: Kill any attempt to read K8s SA token
+    - call: __arm64_sys_openat
+      syscall: true
+      args:
+        - index: 1
+          type: string
+      selectors:
+        - matchArgs:
+            - index: 1
+              operator: Prefix
+              values:
+                - /var/run/secrets/kubernetes.io/
+                - /run/secrets/kubernetes.io/
+          matchActions:
+            - action: Sigkill

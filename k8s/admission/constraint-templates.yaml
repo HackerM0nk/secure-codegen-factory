@@ -1,0 +1,163 @@
+# OPA Gatekeeper ConstraintTemplates for workspace security
+---
+apiVersion: templates.gatekeeper.sh/v1
+kind: ConstraintTemplate
+metadata:
+  name: disallowprivileged
+spec:
+  crd:
+    spec:
+      names:
+        kind: DisallowPrivileged
+  targets:
+    - target: admission.k8s.gatekeeper.sh
+      rego: |
+        package disallowprivileged
+        violation[{"msg": msg}] {
+          container := input.review.object.spec.containers[_]
+          container.securityContext.privileged == true
+          msg := sprintf("Privileged containers are not allowed: %v", [container.name])
+        }
+        violation[{"msg": msg}] {
+          container := input.review.object.spec.initContainers[_]
+          container.securityContext.privileged == true
+          msg := sprintf("Privileged init containers are not allowed: %v", [container.name])
+        }
+---
+apiVersion: templates.gatekeeper.sh/v1
+kind: ConstraintTemplate
+metadata:
+  name: requirelimits
+spec:
+  crd:
+    spec:
+      names:
+        kind: RequireLimits
+  targets:
+    - target: admission.k8s.gatekeeper.sh
+      rego: |
+        package requirelimits
+        violation[{"msg": msg}] {
+          container := input.review.object.spec.containers[_]
+          not container.resources.limits.cpu
+          msg := sprintf("Container %v must have CPU limits", [container.name])
+        }
+        violation[{"msg": msg}] {
+          container := input.review.object.spec.containers[_]
+          not container.resources.limits.memory
+          msg := sprintf("Container %v must have memory limits", [container.name])
+        }
+---
+apiVersion: templates.gatekeeper.sh/v1
+kind: ConstraintTemplate
+metadata:
+  name: requireseccomp
+spec:
+  crd:
+    spec:
+      names:
+        kind: RequireSeccomp
+  targets:
+    - target: admission.k8s.gatekeeper.sh
+      rego: |
+        package requireseccomp
+        violation[{"msg": msg}] {
+          container := input.review.object.spec.containers[_]
+          not container.securityContext.seccompProfile
+          msg := sprintf("Container %v must have a seccomp profile", [container.name])
+        }
+---
+apiVersion: templates.gatekeeper.sh/v1
+kind: ConstraintTemplate
+metadata:
+  name: requirenonroot
+spec:
+  crd:
+    spec:
+      names:
+        kind: RequireNonRoot
+  targets:
+    - target: admission.k8s.gatekeeper.sh
+      rego: |
+        package requirenonroot
+        violation[{"msg": msg}] {
+          not input.review.object.spec.securityContext.runAsNonRoot
+          msg := "Pod must set runAsNonRoot: true"
+        }
+        violation[{"msg": msg}] {
+          container := input.review.object.spec.containers[_]
+          container.securityContext.runAsUser == 0
+          msg := sprintf("Container %v must not run as root (UID 0)", [container.name])
+        }
+---
+apiVersion: templates.gatekeeper.sh/v1
+kind: ConstraintTemplate
+metadata:
+  name: disallowhostnamespaces
+spec:
+  crd:
+    spec:
+      names:
+        kind: DisallowHostNamespaces
+  targets:
+    - target: admission.k8s.gatekeeper.sh
+      rego: |
+        package disallowhostnamespaces
+        violation[{"msg": msg}] {
+          input.review.object.spec.hostNetwork == true
+          msg := "hostNetwork is not allowed"
+        }
+        violation[{"msg": msg}] {
+          input.review.object.spec.hostPID == true
+          msg := "hostPID is not allowed"
+        }
+        violation[{"msg": msg}] {
+          input.review.object.spec.hostIPC == true
+          msg := "hostIPC is not allowed"
+        }
+---
+apiVersion: templates.gatekeeper.sh/v1
+kind: ConstraintTemplate
+metadata:
+  name: restrictvolumes
+spec:
+  crd:
+    spec:
+      names:
+        kind: RestrictVolumes
+      validation:
+        openAPIV3Schema:
+          type: object
+          properties:
+            allowedTypes:
+              type: array
+              items:
+                type: string
+  targets:
+    - target: admission.k8s.gatekeeper.sh
+      rego: |
+        package restrictvolumes
+        violation[{"msg": msg}] {
+          volume := input.review.object.spec.volumes[_]
+          volume.hostPath
+          msg := sprintf("hostPath volumes are not allowed: %v", [volume.name])
+        }
+---
+apiVersion: templates.gatekeeper.sh/v1
+kind: ConstraintTemplate
+metadata:
+  name: disallowprivilegeescalation
+spec:
+  crd:
+    spec:
+      names:
+        kind: DisallowPrivilegeEscalation
+  targets:
+    - target: admission.k8s.gatekeeper.sh
+      rego: |
+        package disallowprivilegeescalation
+        violation[{"msg": msg}] {
+          container := input.review.object.spec.containers[_]
+          container.securityContext.allowPrivilegeEscalation == true
+          msg := sprintf("Privilege escalation not allowed: %v", [container.name])
+        }

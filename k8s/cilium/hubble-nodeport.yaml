@@ -1,0 +1,31 @@
+# Expose Hubble UI and Relay via NodePort for Kind access
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: hubble-ui-nodeport
+  namespace: kube-system
+spec:
+  type: NodePort
+  selector:
+    k8s-app: hubble-ui
+  ports:
+    - name: http
+      port: 80
+      targetPort: 8081
+      nodePort: 30480
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: hubble-relay-nodeport
+  namespace: kube-system
+spec:
+  type: NodePort
+  selector:
+    k8s-app: hubble-relay
+  ports:
+    - name: grpc
+      port: 4245
+      targetPort: 4245
+      nodePort: 30481

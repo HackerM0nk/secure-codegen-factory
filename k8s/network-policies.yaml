@@ -1,0 +1,122 @@
+# Network Policies for workspace namespace — defense in depth
+---
+# Default deny all ingress
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: deny-all-ingress
+  namespace: devfactory-workspaces
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+---
+# Default deny all egress
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: deny-all-egress
+  namespace: devfactory-workspaces
+spec:
+  podSelector: {}
+  policyTypes:
+    - Egress
+---
+# Allow DNS resolution (required for npm install, etc.)
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-dns
+  namespace: devfactory-workspaces
+spec:
+  podSelector: {}
+  policyTypes:
+    - Egress
+  egress:
+    - ports:
+        - port: 53
+          protocol: UDP
+        - port: 53
+          protocol: TCP
+---
+# Allow egress to package registries (npm, pip, apt)
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-registry-egress
+  namespace: devfactory-workspaces
+spec:
+  podSelector:
+    matchLabels:
+      app: workspace
+  policyTypes:
+    - Egress
+  egress:
+    - ports:
+        - port: 443
+          protocol: TCP
+        - port: 80
+          protocol: TCP
+---
+# Allow ingress from Traefik (for preview and terminal access)
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-traefik-ingress
+  namespace: devfactory-workspaces
+spec:
+  podSelector:
+    matchLabels:
+      app: workspace
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: devfactory-system
+          podSelector:
+            matchLabels:
+              app: traefik
+      ports:
+        - port: 3000
+          protocol: TCP
+        - port: 8080
+          protocol: TCP
+---
+# CRITICAL: Block cloud metadata endpoint (169.254.169.254)
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: block-metadata-endpoint
+  namespace: devfactory-workspaces
+spec:
+  podSelector: {}
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+            except:
+              - 169.254.169.254/32  # AWS/GCP/Azure metadata
+              - 100.100.100.200/32  # Alibaba metadata
+              - fd00:ec2::254/128   # AWS IPv6 metadata
+---
+# Deny inter-pod communication within workspace namespace
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: deny-inter-pod
+  namespace: devfactory-workspaces
+spec:
+  podSelector:
+    matchLabels:
+      app: workspace
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: devfactory-system

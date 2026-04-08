@@ -1,0 +1,78 @@
+# Constraint instances scoped to devfactory-workspaces namespace
+---
+apiVersion: constraints.gatekeeper.sh/v1beta1
+kind: DisallowPrivileged
+metadata:
+  name: workspace-no-privileged
+spec:
+  match:
+    kinds:
+      - apiGroups: [""]
+        kinds: ["Pod"]
+    namespaces: ["devfactory-workspaces"]
+---
+apiVersion: constraints.gatekeeper.sh/v1beta1
+kind: RequireLimits
+metadata:
+  name: workspace-require-limits
+spec:
+  match:
+    kinds:
+      - apiGroups: [""]
+        kinds: ["Pod"]
+    namespaces: ["devfactory-workspaces"]
+---
+apiVersion: constraints.gatekeeper.sh/v1beta1
+kind: RequireSeccomp
+metadata:
+  name: workspace-require-seccomp
+spec:
+  match:
+    kinds:
+      - apiGroups: [""]
+        kinds: ["Pod"]
+    namespaces: ["devfactory-workspaces"]
+---
+apiVersion: constraints.gatekeeper.sh/v1beta1
+kind: RequireNonRoot
+metadata:
+  name: workspace-require-nonroot
+spec:
+  match:
+    kinds:
+      - apiGroups: [""]
+        kinds: ["Pod"]
+    namespaces: ["devfactory-workspaces"]
+---
+apiVersion: constraints.gatekeeper.sh/v1beta1
+kind: DisallowHostNamespaces
+metadata:
+  name: workspace-no-host-ns
+spec:
+  match:
+    kinds:
+      - apiGroups: [""]
+        kinds: ["Pod"]
+    namespaces: ["devfactory-workspaces"]
+---
+apiVersion: constraints.gatekeeper.sh/v1beta1
+kind: RestrictVolumes
+metadata:
+  name: workspace-restrict-volumes
+spec:
+  match:
+    kinds:
+      - apiGroups: [""]
+        kinds: ["Pod"]
+    namespaces: ["devfactory-workspaces"]
+---
+apiVersion: constraints.gatekeeper.sh/v1beta1
+kind: DisallowPrivilegeEscalation
+metadata:
+  name: workspace-no-priv-esc
+spec:
+  match:
+    kinds:
+      - apiGroups: [""]
+        kinds: ["Pod"]
+    namespaces: ["devfactory-workspaces"]

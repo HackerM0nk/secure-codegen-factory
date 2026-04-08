@@ -1,0 +1,108 @@
+# docker-compose.monitoring.yml
+# Overlay: adds Loki, Grafana, AlertManager, Fluent Bit, and Wazuh SIEM
+# Usage: docker-compose -f docker-compose.yml -f docker-compose.monitoring.yml up -d
+
+services:
+  # ═══ Log Aggregation ═══
+  loki:
+    image: grafana/loki:2.9.4
+    container_name: devfactory-v2-loki
+    ports:
+      - "3200:3100"
+    command: -config.file=/etc/loki/local-config.yaml
+    volumes:
+      - loki-data:/loki
+    networks:
+      - devfactory-v2
+    healthcheck:
+      test: ["CMD-SHELL", "wget --quiet --tries=1 --spider http://localhost:3100/ready || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+
+  # ═══ Dashboards ═══
+  grafana:
+    image: grafana/grafana:10.3.1
+    container_name: devfactory-v2-grafana
+    ports:
+      - "3300:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning
+      - ./grafana/dashboards:/var/lib/grafana/dashboards
+      - grafana-data:/var/lib/grafana
+    depends_on:
+      - loki
+    networks:
+      - devfactory-v2
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:3000/api/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+
+  # ═══ Alert Aggregation ═══
+  alertmanager:
+    image: prom/alertmanager:v0.27.0
+    container_name: devfactory-v2-alertmanager
+    ports:
+      - "9293:9093"
+    command:
+      - --config.file=/etc/alertmanager/alertmanager.yml
+      - --log.level=info
+    volumes:
+      - ./prometheus/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - alertmanager-data:/alertmanager
+    networks:
+      - devfactory-v2
+    healthcheck:
+      test: ["CMD-SHELL", "wget --quiet --tries=1 --spider http://localhost:9093/-/healthy || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+
+  # ═══ Log Forwarding ═══
+  fluent-bit:
+    image: fluent/fluent-bit:2.2
+    container_name: devfactory-v2-fluent-bit
+    volumes:
+      - ./.audit:/var/log/audit:ro
+      - ./fluent-bit/parsers.conf:/fluent-bit/etc/parsers.conf:ro
+    command: >
+      /fluent-bit/bin/fluent-bit
+        -R /fluent-bit/etc/parsers.conf
+        -i forward -p Listen=0.0.0.0 -p Port=24224
+        -i tail -p Path=/var/log/audit/actions.jsonl -p Parser=json -p Tag=audit -p Refresh_Interval=2
+        -o loki -p host=loki -p port=3100 -p labels=job=fluent-bit -m '*'
+        -f 1
+    ports:
+      - "24224:24224"
+    depends_on:
+      - loki
+    networks:
+      - devfactory-v2
+
+  # ═══ Wazuh SIEM (DISABLED — crashes on ARM64/qemu) ═══
+  # Replaced by TypeScript SIEM Rules Engine: src/server/security/siem-rules-engine.ts
+  # The TS engine mirrors all 13 detection + 3 correlation rules from wazuh/local_rules.xml
+  # To use Wazuh on x86_64, uncomment these services and the wazuh-* volumes below.
+  #
+  # wazuh-indexer:
+  #   image: wazuh/wazuh-indexer:4.7.2
+  #   ...
+  # wazuh-manager:
+  #   image: wazuh/wazuh-manager:4.7.2
+  #   ...
+  # wazuh-dashboard:
+  #   image: wazuh/wazuh-dashboard:4.7.2
+  #   ...
+
+volumes:
+  loki-data:
+  grafana-data:
+  alertmanager-data:

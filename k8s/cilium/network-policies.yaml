@@ -1,0 +1,224 @@
+# Cilium-native NetworkPolicies — L3/L4/L7 with FQDN-aware egress
+# These replace the vanilla k8s/network-policies.yaml when Cilium is the CNI
+---
+# Default deny ALL traffic in workspace namespace
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: default-deny-all
+  namespace: devfactory-workspaces
+spec:
+  endpointSelector: {}
+  ingressDeny:
+    - {}
+  egressDeny:
+    - {}
+---
+# Allow DNS resolution (kube-dns)
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: allow-dns
+  namespace: devfactory-workspaces
+spec:
+  endpointSelector:
+    matchLabels:
+      app: workspace
+  egress:
+    - toEndpoints:
+        - matchLabels:
+            k8s:io.kubernetes.pod.namespace: kube-system
+            k8s-app: kube-dns
+      toPorts:
+        - ports:
+            - port: "53"
+              protocol: UDP
+            - port: "53"
+              protocol: TCP
+          rules:
+            dns:
+              - matchPattern: "*"
+---
+# Allow egress ONLY to known package registries (FQDN-filtered)
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: allow-package-registries
+  namespace: devfactory-workspaces
+spec:
+  endpointSelector:
+    matchLabels:
+      app: workspace
+  egress:
+    - toFQDNs:
+        - matchName: "registry.npmjs.org"
+        - matchName: "registry.yarnpkg.com"
+        - matchName: "pypi.org"
+        - matchName: "files.pythonhosted.org"
+        - matchPattern: "*.debian.org"
+        - matchPattern: "*.ubuntu.com"
+        - matchPattern: "*.githubusercontent.com"
+        - matchName: "github.com"
+        - matchName: "api.github.com"
+        - matchName: "objects.githubusercontent.com"
+      toPorts:
+        - ports:
+            - port: "443"
+              protocol: TCP
+            - port: "80"
+              protocol: TCP
+---
+# Allow ingress from devfactory-system (Traefik/API server)
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: allow-system-ingress
+  namespace: devfactory-workspaces
+spec:
+  endpointSelector:
+    matchLabels:
+      app: workspace
+  ingress:
+    - fromEndpoints:
+        - matchLabels:
+            k8s:io.kubernetes.pod.namespace: devfactory-system
+      toPorts:
+        - ports:
+            - port: "3000"
+              protocol: TCP
+            - port: "8080"
+              protocol: TCP
+            - port: "9090"
+              protocol: TCP
+---
+# Allow workspace pods (init + sidecar) to reach LocalStack S3 for snapshot ops
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: allow-localstack-egress
+  namespace: devfactory-workspaces
+spec:
+  endpointSelector:
+    matchLabels:
+      app: workspace
+  egress:
+    - toEndpoints:
+        - matchLabels:
+            k8s:io.kubernetes.pod.namespace: devfactory-system
+            app: localstack
+      toPorts:
+        - ports:
+            - port: "4566"
+              protocol: TCP
+---
+# Allow workspace pods to reach backend API (for Falco/Tetragon webhook callbacks)
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: allow-backend-egress
+  namespace: devfactory-workspaces
+spec:
+  endpointSelector:
+    matchLabels:
+      app: workspace
+  egress:
+    - toEndpoints:
+        - matchLabels:
+            k8s:io.kubernetes.pod.namespace: devfactory-system
+            app: devfactory-api
+      toPorts:
+        - ports:
+            - port: "4100"
+              protocol: TCP
+---
+# CRITICAL: Block cloud metadata endpoints (SSRF protection)
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: block-metadata-ssrf
+  namespace: devfactory-workspaces
+spec:
+  endpointSelector:
+    matchLabels:
+      app: workspace
+  egressDeny:
+    - toCIDR:
+        - "169.254.169.254/32"   # AWS/GCP/Azure metadata
+        - "100.100.100.200/32"   # Alibaba Cloud metadata
+    - toCIDRSet:
+        - cidr: "10.96.0.0/12"  # Block access to K8s service CIDR
+          except:
+            - "10.96.0.10/32"   # Allow kube-dns only
+---
+# Block inter-workspace communication (tenant isolation)
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: deny-inter-workspace
+  namespace: devfactory-workspaces
+spec:
+  endpointSelector:
+    matchLabels:
+      app: workspace
+  ingressDeny:
+    - fromEndpoints:
+        - matchLabels:
+            app: workspace
+  egressDeny:
+    - toEndpoints:
+        - matchLabels:
+            app: workspace
+---
+# L7 HTTP visibility policy — Hubble can inspect HTTP methods/paths
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: l7-http-visibility
+  namespace: devfactory-workspaces
+  annotations:
+    io.cilium.proxy-visibility: "<Ingress/3000/TCP/HTTP>,<Ingress/8080/TCP/HTTP>"
+spec:
+  endpointSelector:
+    matchLabels:
+      app: workspace
+  ingress:
+    - fromEndpoints:
+        - matchLabels:
+            k8s:io.kubernetes.pod.namespace: devfactory-system
+      toPorts:
+        - ports:
+            - port: "3000"
+              protocol: TCP
+            - port: "8080"
+              protocol: TCP
+          rules:
+            http:
+              - method: "GET"
+              - method: "POST"
+              - method: "PUT"
+              - method: "DELETE"
+              - method: "PATCH"
+---
+# L7 HTTP visibility for system namespace — see backend↔service traffic in Hubble
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: l7-http-visibility-system
+  namespace: devfactory-system
+  annotations:
+    io.cilium.proxy-visibility: "<Ingress/4100/TCP/HTTP>,<Ingress/4566/TCP/HTTP>"
+spec:
+  endpointSelector: {}
+  ingress:
+    - toPorts:
+        - ports:
+            - port: "4100"
+              protocol: TCP
+            - port: "4566"
+              protocol: TCP
+          rules:
+            http:
+              - method: "GET"
+              - method: "POST"
+              - method: "PUT"
+              - method: "DELETE"

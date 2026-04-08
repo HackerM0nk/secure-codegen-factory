@@ -1,0 +1,75 @@
+# OpenTelemetry Collector config — unified telemetry pipeline
+# Receives: OTLP traces (app), filelog (Tetragon JSON)
+# Exports: Jaeger (traces), Prometheus (metrics), Loki (events)
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: otel-collector-config
+  namespace: devfactory-monitoring
+data:
+  config.yaml: |
+    receivers:
+      otlp:
+        protocols:
+          grpc:
+            endpoint: 0.0.0.0:4317
+          http:
+            endpoint: 0.0.0.0:4318
+      filelog/tetragon:
+        include:
+          - /var/log/tetragon/tetragon.log
+        start_at: end
+        operators:
+          - type: json_parser
+            timestamp:
+              parse_from: attributes.time
+              layout: "%Y-%m-%dT%H:%M:%S"
+
+    processors:
+      batch:
+        send_batch_size: 100
+        timeout: 5s
+      resource:
+        attributes:
+          - key: service.name
+            value: devfactory
+            action: upsert
+          - key: deployment.environment
+            value: development
+            action: upsert
+      attributes/security:
+        actions:
+          - key: security.source
+            value: tetragon
+            action: upsert
+
+    exporters:
+      otlp/jaeger:
+        endpoint: jaeger:4317
+        tls:
+          insecure: true
+      prometheus:
+        endpoint: 0.0.0.0:8889
+        namespace: otel
+      loki:
+        endpoint: http://loki:3100/loki/api/v1/push
+        labels:
+          attributes:
+            security.source: ""
+          resource:
+            service.name: ""
+
+    service:
+      pipelines:
+        traces:
+          receivers: [otlp]
+          processors: [batch, resource]
+          exporters: [otlp/jaeger]
+        metrics:
+          receivers: [otlp]
+          processors: [batch, resource]
+          exporters: [prometheus]
+        logs/security:
+          receivers: [filelog/tetragon]
+          processors: [batch, attributes/security]
+          exporters: [loki]

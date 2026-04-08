@@ -1,0 +1,190 @@
+# Cilium NetworkPolicies for devfactory-system namespace
+# Governs traffic between control plane services: backend, Redis, Postgres, LocalStack
+---
+# Default deny ALL traffic — explicit allow required
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: default-deny-system
+  namespace: devfactory-system
+spec:
+  endpointSelector: {}
+  ingressDeny:
+    - {}
+  egressDeny:
+    - {}
+---
+# Allow DNS for all system pods
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: allow-dns-system
+  namespace: devfactory-system
+spec:
+  endpointSelector: {}
+  egress:
+    - toEndpoints:
+        - matchLabels:
+            k8s:io.kubernetes.pod.namespace: kube-system
+            k8s-app: kube-dns
+      toPorts:
+        - ports:
+            - port: "53"
+              protocol: UDP
+            - port: "53"
+              protocol: TCP
+---
+# Backend API — can talk to Redis, Postgres, LocalStack, and receive from workspaces
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: backend-api-policy
+  namespace: devfactory-system
+spec:
+  endpointSelector:
+    matchLabels:
+      app: devfactory-api
+  ingress:
+    # Accept from workspace pods (agent loop callbacks, health checks)
+    - fromEndpoints:
+        - matchLabels:
+            k8s:io.kubernetes.pod.namespace: devfactory-workspaces
+      toPorts:
+        - ports:
+            - port: "4100"
+              protocol: TCP
+    # Accept from monitoring namespace (Prometheus scraping)
+    - fromEndpoints:
+        - matchLabels:
+            k8s:io.kubernetes.pod.namespace: devfactory-monitoring
+      toPorts:
+        - ports:
+            - port: "4100"
+              protocol: TCP
+  egress:
+    # Redis
+    - toEndpoints:
+        - matchLabels:
+            app: redis
+      toPorts:
+        - ports:
+            - port: "6379"
+              protocol: TCP
+    # Postgres
+    - toEndpoints:
+        - matchLabels:
+            app: postgres
+      toPorts:
+        - ports:
+            - port: "5432"
+              protocol: TCP
+    # LocalStack S3
+    - toEndpoints:
+        - matchLabels:
+            app: localstack
+      toPorts:
+        - ports:
+            - port: "4566"
+              protocol: TCP
+    # Ollama (external, on host)
+    - toCIDR:
+        - "0.0.0.0/0"
+      toPorts:
+        - ports:
+            - port: "11434"
+              protocol: TCP
+---
+# Redis — only accepts from backend API and event bus consumers
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: redis-policy
+  namespace: devfactory-system
+spec:
+  endpointSelector:
+    matchLabels:
+      app: redis
+  ingress:
+    - fromEndpoints:
+        - matchLabels:
+            app: devfactory-api
+      toPorts:
+        - ports:
+            - port: "6379"
+              protocol: TCP
+  egress: []
+---
+# Postgres — only accepts from backend API
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: postgres-policy
+  namespace: devfactory-system
+spec:
+  endpointSelector:
+    matchLabels:
+      app: postgres
+  ingress:
+    - fromEndpoints:
+        - matchLabels:
+            app: devfactory-api
+      toPorts:
+        - ports:
+            - port: "5432"
+              protocol: TCP
+  egress: []
+---
+# LocalStack — accepts from backend and workspace sidecars (S3 snapshots)
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: localstack-policy
+  namespace: devfactory-system
+spec:
+  endpointSelector:
+    matchLabels:
+      app: localstack
+  ingress:
+    - fromEndpoints:
+        - matchLabels:
+            app: devfactory-api
+      toPorts:
+        - ports:
+            - port: "4566"
+              protocol: TCP
+    # Workspace init containers and sidecars for S3 snapshot operations
+    - fromEndpoints:
+        - matchLabels:
+            k8s:io.kubernetes.pod.namespace: devfactory-workspaces
+      toPorts:
+        - ports:
+            - port: "4566"
+              protocol: TCP
+  egress: []
+---
+# Monitoring — Prometheus can scrape backend, Grafana can query Prometheus/Loki
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: monitoring-policy
+  namespace: devfactory-monitoring
+spec:
+  endpointSelector: {}
+  egress:
+    # Scrape backend metrics
+    - toEndpoints:
+        - matchLabels:
+            k8s:io.kubernetes.pod.namespace: devfactory-system
+            app: devfactory-api
+      toPorts:
+        - ports:
+            - port: "4100"
+              protocol: TCP
+    # Internal monitoring communication
+    - toEndpoints:
+        - matchLabels:
+            k8s:io.kubernetes.pod.namespace: devfactory-monitoring
+  ingress:
+    - fromEndpoints:
+        - matchLabels:
+            k8s:io.kubernetes.pod.namespace: devfactory-monitoring

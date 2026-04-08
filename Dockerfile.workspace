@@ -1,0 +1,69 @@
+FROM node:20-bookworm
+
+LABEL org.opencontainers.image.title="devfactory-workspace" \
+      org.opencontainers.image.version="2.0.0" \
+      org.opencontainers.image.description="Immutable workspace container for AI dev factory v2"
+
+ARG TTYD_VERSION=1.7.7
+
+# System dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    python3 \
+    python3-pip \
+    python3-venv \
+    git \
+    curl \
+    wget \
+    jq \
+    sqlite3 \
+    build-essential \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install ttyd with architecture detection
+RUN ARCH=$(uname -m) && \
+    if [ "$ARCH" = "x86_64" ]; then \
+      TTYD_ARCH="x86_64"; \
+    elif [ "$ARCH" = "aarch64" ] || [ "$ARCH" = "arm64" ]; then \
+      TTYD_ARCH="aarch64"; \
+    else \
+      echo "Unsupported architecture: $ARCH" && exit 1; \
+    fi && \
+    wget -O /usr/local/bin/ttyd \
+      "https://github.com/tsl0922/ttyd/releases/download/${TTYD_VERSION}/ttyd.${TTYD_ARCH}" && \
+    chmod +x /usr/local/bin/ttyd
+
+# Install yazi terminal file manager
+RUN ARCH=$(uname -m) && \
+    if [ "$ARCH" = "x86_64" ]; then YAZI_ARCH="x86_64"; \
+    elif [ "$ARCH" = "aarch64" ] || [ "$ARCH" = "arm64" ]; then YAZI_ARCH="aarch64"; \
+    else echo "Unsupported arch" && exit 1; fi && \
+    wget -qO /tmp/yazi.zip \
+      "https://github.com/sxyazi/yazi/releases/latest/download/yazi-${YAZI_ARCH}-unknown-linux-gnu.zip" && \
+    apt-get update && apt-get install -y --no-install-recommends unzip file && \
+    cd /tmp && unzip yazi.zip && \
+    cp yazi-${YAZI_ARCH}-unknown-linux-gnu/yazi /usr/local/bin/yazi && \
+    cp yazi-${YAZI_ARCH}-unknown-linux-gnu/ya /usr/local/bin/ya && \
+    chmod +x /usr/local/bin/yazi /usr/local/bin/ya && \
+    rm -rf /tmp/yazi* && \
+    rm -rf /var/lib/apt/lists/*
+
+# Global Node.js tooling
+RUN npm install -g --force pnpm yarn create-vite create-next-app typescript
+
+# Create non-root user for workspace
+RUN groupadd -g 1001 workspace && \
+    useradd -u 1001 -g workspace -m -s /bin/bash workspace
+
+WORKDIR /workspace
+
+COPY workspace-entrypoint.sh /usr/local/bin/workspace-entrypoint.sh
+RUN chmod +x /usr/local/bin/workspace-entrypoint.sh
+
+RUN chown -R workspace:workspace /workspace
+
+EXPOSE 3000 8080
+
+USER workspace
+
+ENTRYPOINT ["/usr/local/bin/workspace-entrypoint.sh"]

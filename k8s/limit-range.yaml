@@ -1,0 +1,25 @@
+# Resource limits for workspace namespace
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: workspace-limits
+  namespace: devfactory-workspaces
+spec:
+  limits:
+    - type: Pod
+      max:
+        cpu: "4"
+        memory: 4Gi
+      min:
+        cpu: 100m
+        memory: 128Mi
+    - type: Container
+      default:
+        cpu: "2"
+        memory: 2Gi
+      defaultRequest:
+        cpu: 500m
+        memory: 512Mi
+      max:
+        cpu: "4"
+        memory: 4Gi

@@ -1,0 +1,72 @@
+# TracingPolicy: Monitor process execution in workspace pods
+# Detects: container escape tools, crypto miners, reverse shells, suspicious binaries
+# Uses namespaceSelector to scope to devfactory-workspaces K8s namespace
+apiVersion: cilium.io/v1alpha1
+kind: TracingPolicyNamespaced
+metadata:
+  name: workspace-process-monitor
+  namespace: devfactory-workspaces
+spec:
+  kprobes:
+    - call: __arm64_sys_execve
+      syscall: true
+      args:
+        - index: 0
+          type: string
+      selectors:
+        - matchArgs:
+            - index: 0
+              operator: Prefix
+              values:
+                # Container escape tools
+                - /usr/bin/nsenter
+                - /usr/bin/unshare
+                - /usr/sbin/chroot
+                - /usr/bin/pivot_root
+                # Crypto miners
+                - /usr/bin/xmrig
+                - /tmp/xmrig
+                - /usr/bin/cpuminer
+                - /usr/bin/minerd
+                # Network recon
+                - /usr/bin/nmap
+                - /usr/bin/masscan
+                # Reverse shell tools
+                - /usr/bin/ncat
+                - /usr/bin/socat
+                # Privilege escalation
+                - /usr/bin/sudo
+                - /usr/bin/su
+                - /usr/bin/passwd
+                # Package managers for unexpected installs
+                - /usr/bin/apt
+                - /usr/bin/apt-get
+                - /usr/bin/yum
+                - /usr/bin/dnf
+          matchActions:
+            - action: Post
+              rateLimit: "1s"
+---
+# Kill container escape attempts immediately
+apiVersion: cilium.io/v1alpha1
+kind: TracingPolicyNamespaced
+metadata:
+  name: workspace-kill-escape
+  namespace: devfactory-workspaces
+spec:
+  kprobes:
+    - call: __arm64_sys_execve
+      syscall: true
+      args:
+        - index: 0
+          type: string
+      selectors:
+        - matchArgs:
+            - index: 0
+              operator: Prefix
+              values:
+                - /usr/bin/nsenter
+                - /usr/bin/unshare
+                - /usr/sbin/chroot
+          matchActions:
+            - action: Sigkill

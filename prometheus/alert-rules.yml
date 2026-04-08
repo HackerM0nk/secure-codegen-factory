@@ -1,0 +1,336 @@
+groups:
+  # ══════════════════════════════════════════════════════════════════════
+  # Security Detection Rules
+  # ══════════════════════════════════════════════════════════════════════
+  - name: security_detections
+    rules:
+      # ── Prompt Injection ──────────────────────────────────────────────
+      - alert: HighInjectionRate
+        expr: sum(rate(security_blocks_total{category="input_blocked"}[1h])) > 3
+        for: 5m
+        labels:
+          severity: warning
+          team: security
+        annotations:
+          summary: "High injection attempt rate (>3/hr)"
+          description: "Sustained prompt injection attempts — possible automated probing"
+          runbook: "docs/playbooks/prompt-injection.md"
+
+      - alert: InjectionBurst
+        expr: sum(increase(security_blocks_total{category="input_blocked"}[5m])) > 10
+        labels:
+          severity: critical
+          team: security
+        annotations:
+          summary: "Injection burst — 10+ attempts in 5 minutes"
+          description: "Rapid-fire injection attempts indicating active attack"
+          runbook: "docs/playbooks/prompt-injection.md"
+
+      # ── Sandbox / Command Security ────────────────────────────────────
+      - alert: SandboxViolationSpike
+        expr: sum(rate(security_blocks_total{category="command_blocked"}[1h])) > 10
+        for: 5m
+        labels:
+          severity: critical
+          team: security
+        annotations:
+          summary: "Sandbox violation spike (>10 blocked commands/hr)"
+          description: "High rate of blocked shell commands — possible escape attempt"
+          runbook: "docs/playbooks/sandbox-escape.md"
+
+      - alert: ContainerEscapeAttempt
+        expr: security_blocks_total{pattern=~"nsenter|unshare|chroot|pivot_root|mount_namespace"} > 0
+        labels:
+          severity: critical
+          team: security
+        annotations:
+          summary: "Container escape tool detected"
+          description: "Attempted use of namespace/mount manipulation tool"
+          runbook: "docs/playbooks/sandbox-escape.md"
+
+      - alert: MetadataEndpointAccess
+        expr: security_blocks_total{pattern=~".*metadata.*"} > 0
+        labels:
+          severity: critical
+          team: security
+        annotations:
+          summary: "Cloud metadata endpoint access attempt"
+          description: "SSRF attempt targeting 169.254.169.254 — credential theft vector"
+
+      - alert: ReverseShellAttempt
+        expr: security_blocks_total{pattern=~".*reverse_shell.*|.*dev_tcp.*|.*dev_udp.*"} > 0
+        labels:
+          severity: critical
+          team: security
+        annotations:
+          summary: "Reverse shell attempt detected"
+          description: "Blocked command matching reverse shell pattern"
+
+      # ── Behavioral Detection ──────────────────────────────────────────
+      - alert: BehavioralMalicious
+        expr: behavioral_detections_total{classification="MALICIOUS"} > 0
+        labels:
+          severity: critical
+          team: security
+        annotations:
+          summary: "LLM behavioral detector flagged MALICIOUS session"
+          description: "AI-based analysis classified multi-turn session behavior as malicious"
+
+      - alert: BehavioralSuspiciousSpike
+        expr: sum(increase(behavioral_detections_total{classification="SUSPICIOUS"}[1h])) > 5
+        for: 5m
+        labels:
+          severity: warning
+          team: security
+        annotations:
+          summary: "Multiple SUSPICIOUS behavioral detections"
+          description: "5+ sessions flagged as suspicious in 1 hour — coordinated activity?"
+
+      # ── Trajectory / Session Risk ─────────────────────────────────────
+      - alert: TrajectoryPause
+        expr: security_blocks_total{category="trajectory_paused"} > 0
+        labels:
+          severity: warning
+          team: security
+        annotations:
+          summary: "Session auto-paused by trajectory monitor"
+          description: "Session risk score exceeded threshold (0.7) — auto-paused"
+
+      # ── Secret / Data Leakage ─────────────────────────────────────────
+      - alert: SecretDetectionSpike
+        expr: sum(increase(security_blocks_total{category="secret_detected"}[1h])) > 5
+        labels:
+          severity: warning
+          team: security
+        annotations:
+          summary: "Multiple secrets detected in user input"
+          description: "5+ secret detections in 1 hour — user may be pasting credentials"
+
+      # ── Supply Chain ──────────────────────────────────────────────────
+      - alert: MaliciousPackageBlocked
+        expr: security_blocks_total{category="package_blocked"} > 0
+        labels:
+          severity: critical
+          team: security
+        annotations:
+          summary: "Malicious package installation blocked"
+          description: "Typosquat or known-malicious npm package blocked by filter"
+          runbook: "docs/playbooks/supply-chain-attack.md"
+
+      # ── Runtime Security (Tetragon) ───────────────────────────────────
+      - alert: RuntimeSecurityAlert
+        expr: security_blocks_total{category="runtime_alert"} > 0
+        labels:
+          severity: critical
+          team: security
+        annotations:
+          summary: "Tetragon runtime security alert"
+          description: "eBPF-based runtime monitor detected suspicious syscall/file/network activity"
+
+      # ── Scan Findings ─────────────────────────────────────────────────
+      - alert: CriticalScanFindings
+        expr: scan_findings_total{severity="critical"} > 0
+        labels:
+          severity: warning
+          team: security
+        annotations:
+          summary: "Critical findings in security scan"
+          description: "SAST/SCA/secret scan found critical-severity issues"
+
+  # ══════════════════════════════════════════════════════════════════════
+  # Application Uptime & Health
+  # ══════════════════════════════════════════════════════════════════════
+  - name: app_health
+    rules:
+      - alert: AppDown
+        expr: up{job="devfactory-api"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          team: platform
+        annotations:
+          summary: "DevFactory API is down"
+          description: "Prometheus cannot scrape the /metrics endpoint"
+
+      - alert: HighErrorRate
+        expr: >
+          sum(rate(http_requests_total{status_code=~"5.."}[5m]))
+          /
+          sum(rate(http_requests_total[5m]))
+          > 0.05
+        for: 5m
+        labels:
+          severity: critical
+          team: platform
+        annotations:
+          summary: "HTTP 5xx error rate > 5%"
+          description: "More than 5% of requests are failing with server errors"
+
+      - alert: HighLatencyP95
+        expr: histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket[5m])) by (le)) > 5
+        for: 5m
+        labels:
+          severity: warning
+          team: platform
+        annotations:
+          summary: "API p95 latency > 5 seconds"
+          description: "95th percentile request duration exceeds 5 seconds"
+
+      - alert: HighLatencyP99
+        expr: histogram_quantile(0.99, sum(rate(http_request_duration_seconds_bucket[5m])) by (le)) > 10
+        for: 5m
+        labels:
+          severity: critical
+          team: platform
+        annotations:
+          summary: "API p99 latency > 10 seconds"
+          description: "99th percentile exceeds 10 seconds — likely timeout cascade"
+
+      - alert: RedisDown
+        expr: redis_connection_status == 0
+        for: 1m
+        labels:
+          severity: critical
+          team: platform
+        annotations:
+          summary: "Redis connection lost"
+          description: "Event bus, rate limiter, and caching are all offline"
+
+  # ══════════════════════════════════════════════════════════════════════
+  # Infrastructure & Resources
+  # ══════════════════════════════════════════════════════════════════════
+  - name: infrastructure
+    rules:
+      - alert: HighMemoryUsage
+        expr: process_resident_memory_bytes / 1024 / 1024 > 1500
+        for: 5m
+        labels:
+          severity: warning
+          team: platform
+        annotations:
+          summary: "API server memory > 1.5GB"
+          description: "Server memory usage is high — possible memory leak"
+
+      - alert: WorkspaceOOM
+        expr: process_resident_memory_bytes > 2e9
+        for: 2m
+        labels:
+          severity: critical
+          team: platform
+        annotations:
+          summary: "Process approaching memory limit (>2GB)"
+          description: "Risk of OOM kill"
+
+      - alert: PossibleCryptoMining
+        expr: rate(process_cpu_seconds_total[5m]) > 0.9
+        for: 5m
+        labels:
+          severity: warning
+          team: security
+        annotations:
+          summary: "CPU usage > 90% sustained"
+          description: "Possible crypto mining or runaway process"
+          runbook: "docs/playbooks/crypto-mining.md"
+
+      - alert: EventLoopLag
+        expr: nodejs_eventloop_lag_seconds > 0.5
+        for: 2m
+        labels:
+          severity: warning
+          team: platform
+        annotations:
+          summary: "Node.js event loop lag > 500ms"
+          description: "Event loop is blocked — API responsiveness degraded"
+
+      - alert: TooManyOpenFileDescriptors
+        expr: process_open_fds / process_max_fds > 0.8
+        for: 5m
+        labels:
+          severity: warning
+          team: platform
+        annotations:
+          summary: "File descriptor usage > 80%"
+          description: "Approaching FD limit — possible connection leak"
+
+  # ══════════════════════════════════════════════════════════════════════
+  # LLM Provider Health
+  # ══════════════════════════════════════════════════════════════════════
+  - name: llm_health
+    rules:
+      - alert: LLMHighLatency
+        expr: histogram_quantile(0.95, rate(llm_call_duration_seconds_bucket[5m])) > 120
+        for: 5m
+        labels:
+          severity: warning
+          team: platform
+        annotations:
+          summary: "LLM p95 latency > 2 minutes"
+          description: "LLM provider experiencing degraded performance"
+
+      - alert: LLMProviderUnhealthy
+        expr: provider_health_score < 0.3
+        for: 5m
+        labels:
+          severity: warning
+          team: platform
+        annotations:
+          summary: "LLM provider health score < 0.3"
+          description: "Provider may be rate-limited or experiencing outage"
+
+      - alert: LLMHighErrorRate
+        expr: >
+          sum(rate(llm_tokens_total{direction="error"}[5m]))
+          /
+          (sum(rate(llm_tokens_total[5m])) + 1)
+          > 0.1
+        for: 5m
+        labels:
+          severity: critical
+          team: platform
+        annotations:
+          summary: "LLM error rate > 10%"
+          description: "High failure rate on LLM calls — check provider status"
+
+      - alert: LLMTokenBudgetBurn
+        expr: sum(increase(llm_tokens_total[1h])) > 1000000
+        labels:
+          severity: warning
+          team: platform
+        annotations:
+          summary: "LLM token burn > 1M tokens/hour"
+          description: "Unusually high token consumption — check for runaway agent loops"
+
+  # ══════════════════════════════════════════════════════════════════════
+  # Workspace Health
+  # ══════════════════════════════════════════════════════════════════════
+  - name: workspace_health
+    rules:
+      - alert: WorkspaceCreationSlow
+        expr: histogram_quantile(0.95, rate(workspace_creation_duration_seconds_bucket[5m])) > 30
+        for: 5m
+        labels:
+          severity: warning
+          team: platform
+        annotations:
+          summary: "Workspace creation p95 > 30 seconds"
+          description: "Workspace provisioning is slow — check Docker/K8s health"
+
+      - alert: TooManyActiveWorkspaces
+        expr: active_workspaces > 50
+        for: 5m
+        labels:
+          severity: warning
+          team: platform
+        annotations:
+          summary: "50+ active workspaces"
+          description: "High workspace count — risk of resource exhaustion"
+
+      - alert: AgentSessionStuck
+        expr: histogram_quantile(0.95, rate(agent_session_duration_seconds_bucket[5m])) > 600
+        for: 5m
+        labels:
+          severity: warning
+          team: platform
+        annotations:
+          summary: "Agent sessions p95 > 10 minutes"
+          description: "Agent loops may be stuck — check for infinite tool cycles"

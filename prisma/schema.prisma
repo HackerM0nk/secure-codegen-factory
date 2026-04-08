@@ -1,0 +1,230 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// ─── Auth & Tenancy ───────────────────────────────────
+
+model Organization {
+  id               String            @id @default(uuid())
+  name             String
+  slug             String            @unique
+  plan             String            @default("free") // free, pro, business, enterprise
+  stripeCustomerId String?           @map("stripe_customer_id")
+  members          OrgMembership[]
+  projects         Project[]
+  usageEvents      UsageEvent[]
+  creditLedger     CreditLedgerEntry[]
+  creditBalance    Decimal           @default(50) @db.Decimal(10, 4)
+  createdAt        DateTime          @default(now()) @map("created_at")
+  updatedAt        DateTime          @updatedAt @map("updated_at")
+
+  @@map("organizations")
+}
+
+model User {
+  id            String          @id @default(uuid())
+  email         String          @unique
+  name          String?
+  avatarUrl     String?         @map("avatar_url")
+  keycloakId    String?         @unique @map("keycloak_id")
+  memberships   OrgMembership[]
+  messages      Message[]
+  deployments   Deployment[]
+  usageEvents   UsageEvent[]
+  createdAt     DateTime        @default(now()) @map("created_at")
+
+  @@map("users")
+}
+
+model OrgMembership {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  orgId     String   @map("org_id")
+  role      String   @default("member") // owner, admin, member, viewer
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  org       Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@unique([userId, orgId])
+  @@map("org_memberships")
+}
+
+// ─── Projects & Workspaces ────────────────────────────
+
+model Project {
+  id            String        @id @default(uuid())
+  orgId         String        @map("org_id")
+  creatorId     String        @map("creator_id")
+  name          String
+  slug          String
+  description   String?
+  visibility    String        @default("private") // public, private, internal
+  templateId    String?       @map("template_id")
+  forkedFromId  String?       @map("forked_from_id")
+  techStack     Json?         @map("tech_stack") // {framework, styling, ...}
+  containerId   String?       @map("container_id")
+  containerName String?       @map("container_name")
+  previewUrl    String?       @map("preview_url")
+  snapshotKey   String?       @map("snapshot_key")
+  snapshotHash  String?       @map("snapshot_hash") // content-addressed SHA256
+  status        String        @default("stopped") // stopped, starting, running, error
+  org           Organization  @relation(fields: [orgId], references: [id])
+  template      Template?     @relation(fields: [templateId], references: [id])
+  forkedFrom    Project?      @relation("forks", fields: [forkedFromId], references: [id])
+  forks         Project[]     @relation("forks")
+  conversations Conversation[]
+  actions       AgentAction[]
+  files         ProjectFile[]
+  deployments   Deployment[]
+  usageEvents   UsageEvent[]
+  createdAt     DateTime      @default(now()) @map("created_at")
+  updatedAt     DateTime      @updatedAt @map("updated_at")
+
+  @@unique([orgId, slug])
+  @@index([orgId])
+  @@index([creatorId])
+  @@map("projects")
+}
+
+model ProjectFile {
+  id          String   @id @default(uuid())
+  projectId   String   @map("project_id")
+  path        String   // src/components/Button.tsx
+  content     String?  @db.Text
+  contentHash String?  @map("content_hash") // SHA-256
+  isDirectory Boolean  @default(false) @map("is_directory")
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@unique([projectId, path])
+  @@map("project_files")
+}
+
+// ─── Conversations & Agent ────────────────────────────
+
+model Conversation {
+  id        String    @id @default(uuid())
+  projectId String    @map("project_id")
+  project   Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  messages  Message[]
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  @@index([projectId])
+  @@map("conversations")
+}
+
+model Message {
+  id              String        @id @default(uuid())
+  conversationId  String        @map("conversation_id")
+  userId          String?       @map("user_id")
+  role            String        // user, assistant, system
+  content         String        @db.Text
+  toolCalls       Json?         @map("tool_calls")
+  modelUsed       String?       @map("model_used")
+  providerUsed    String?       @map("provider_used")
+  tokenUsage      Json?         @map("token_usage") // {input, output, cached}
+  creditsConsumed Decimal?      @map("credits_consumed") @db.Decimal(10, 4)
+  durationMs      Int?          @map("duration_ms")
+  conversation    Conversation  @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  user            User?         @relation(fields: [userId], references: [id])
+  actions         AgentAction[]
+  createdAt       DateTime      @default(now()) @map("created_at")
+
+  @@index([conversationId])
+  @@map("messages")
+}
+
+model AgentAction {
+  id          String   @id @default(uuid())
+  projectId   String   @map("project_id")
+  messageId   String?  @map("message_id")
+  type        String   // file_write, file_read, shell_exec, file_list
+  input       Json
+  output      String?  @db.Text
+  status      String   @default("pending") // pending, running, success, error
+  durationMs  Int?     @map("duration_ms")
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  message     Message? @relation(fields: [messageId], references: [id])
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@index([projectId])
+  @@map("agent_actions")
+}
+
+// ─── Billing ──────────────────────────────────────────
+
+model UsageEvent {
+  id          String       @id @default(uuid())
+  orgId       String       @map("org_id")
+  userId      String       @map("user_id")
+  projectId   String?      @map("project_id")
+  eventType   String       @map("event_type") // llm_call, build, deploy, storage
+  creditsUsed Decimal      @map("credits_used") @db.Decimal(10, 4)
+  metadata    Json?        // {model, tokensIn, tokensOut, provider}
+  org         Organization @relation(fields: [orgId], references: [id])
+  user        User         @relation(fields: [userId], references: [id])
+  project     Project?     @relation(fields: [projectId], references: [id])
+  createdAt   DateTime     @default(now()) @map("created_at")
+
+  @@index([orgId, createdAt])
+  @@index([userId, createdAt])
+  @@map("usage_events")
+}
+
+model CreditLedgerEntry {
+  id           String       @id @default(uuid())
+  orgId        String       @map("org_id")
+  amount       Decimal      @db.Decimal(10, 4) // positive=credit, negative=debit
+  balanceAfter Decimal      @map("balance_after") @db.Decimal(10, 4)
+  source       String       // subscription, top_up, daily_grant, usage, refund
+  referenceId  String?      @map("reference_id") // usageEventId or stripePaymentId
+  description  String?
+  org          Organization @relation(fields: [orgId], references: [id])
+  createdAt    DateTime     @default(now()) @map("created_at")
+
+  @@index([orgId, createdAt])
+  @@map("credit_ledger")
+}
+
+// ─── Templates & Deployments ──────────────────────────
+
+model Template {
+  id           String    @id @default(uuid())
+  name         String
+  description  String?
+  category     String    // landing-page, dashboard, e-commerce, api, blog
+  thumbnailUrl String?   @map("thumbnail_url")
+  techStack    Json      @map("tech_stack") // {framework, styling, ...}
+  fileSnapshot Json      @map("file_snapshot") // {path: content} for initial files
+  popularity   Int       @default(0)
+  isFeatured   Boolean   @default(false) @map("is_featured")
+  projects     Project[]
+  createdAt    DateTime  @default(now()) @map("created_at")
+
+  @@map("templates")
+}
+
+model Deployment {
+  id           String   @id @default(uuid())
+  projectId    String   @map("project_id")
+  deployedBy   String   @map("deployed_by")
+  environment  String   @default("preview") // preview, production
+  status       String   @default("building") // building, deployed, failed, stopped
+  url          String?
+  customDomain String?  @map("custom_domain")
+  containerId  String?  @map("container_id")
+  buildLog     String?  @map("build_log") @db.Text
+  imageTag     String?  @map("image_tag")
+  project      Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  deployer     User     @relation(fields: [deployedBy], references: [id])
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  @@index([projectId])
+  @@map("deployments")
+}

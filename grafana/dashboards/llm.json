@@ -1,0 +1,62 @@
+{
+  "annotations": { "list": [] },
+  "editable": true,
+  "graphTooltip": 1,
+  "panels": [
+    {
+      "title": "Provider Health Scores",
+      "type": "gauge",
+      "gridPos": { "h": 6, "w": 12, "x": 0, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [{ "expr": "provider_health_score", "legendFormat": "{{provider}}" }],
+      "fieldConfig": { "defaults": { "min": 0, "max": 1, "thresholds": { "steps": [{ "color": "red", "value": null }, { "color": "yellow", "value": 0.5 }, { "color": "green", "value": 0.8 }] } } }
+    },
+    {
+      "title": "LLM Latency by Provider (p50/p95/p99)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        { "expr": "histogram_quantile(0.5, rate(llm_call_duration_seconds_bucket[5m]))", "legendFormat": "p50 {{provider}}" },
+        { "expr": "histogram_quantile(0.95, rate(llm_call_duration_seconds_bucket[5m]))", "legendFormat": "p95 {{provider}}" },
+        { "expr": "histogram_quantile(0.99, rate(llm_call_duration_seconds_bucket[5m]))", "legendFormat": "p99 {{provider}}" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "s" } }
+    },
+    {
+      "title": "Error Rate by Provider",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 6 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        { "expr": "rate(llm_tokens_total{direction=\"error\"}[5m])", "legendFormat": "{{model}} errors" }
+      ],
+      "fieldConfig": { "defaults": { "custom": { "fillOpacity": 30 }, "color": { "fixedColor": "red", "mode": "fixed" } } }
+    },
+    {
+      "title": "Token Throughput",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        { "expr": "sum(rate(llm_tokens_total{direction=\"input\"}[5m]))", "legendFormat": "Input tokens/s" },
+        { "expr": "sum(rate(llm_tokens_total{direction=\"output\"}[5m]))", "legendFormat": "Output tokens/s" }
+      ]
+    },
+    {
+      "title": "Cache Hit Rate",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 6, "x": 0, "y": 14 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [{ "expr": "sum(rate(llm_tokens_total{direction=\"cache_read\"}[5m])) / sum(rate(llm_tokens_total{direction=\"input\"}[5m])) * 100 or vector(0)", "legendFormat": "Cache %" }],
+      "fieldConfig": { "defaults": { "unit": "percent" } }
+    }
+  ],
+  "refresh": "10s",
+  "schemaVersion": 39,
+  "tags": ["llm", "devfactory"],
+  "time": { "from": "now-1h", "to": "now" },
+  "title": "DevFactory LLM",
+  "uid": "devfactory-llm",
+  "version": 1
+}

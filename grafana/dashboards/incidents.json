@@ -1,0 +1,55 @@
+{
+  "annotations": { "list": [] },
+  "editable": true,
+  "graphTooltip": 1,
+  "panels": [
+    {
+      "title": "Security Event Timeline",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        { "expr": "rate(security_blocks_total{category=\"input_blocked\"}[5m])", "legendFormat": "Input Blocked" },
+        { "expr": "rate(security_blocks_total{category=\"command_blocked\"}[5m])", "legendFormat": "Command Blocked" },
+        { "expr": "rate(security_blocks_total{category=\"secret_detected\"}[5m])", "legendFormat": "Secret Detected" },
+        { "expr": "rate(security_blocks_total{category=\"runtime_alert\"}[5m])", "legendFormat": "Runtime Alert" },
+        { "expr": "rate(behavioral_detections_total{classification=~\"SUSPICIOUS|MALICIOUS\"}[5m])", "legendFormat": "Behavioral {{classification}}" }
+      ],
+      "fieldConfig": { "defaults": { "custom": { "fillOpacity": 20, "stacking": { "mode": "normal" } } } }
+    },
+    {
+      "title": "Active Incidents",
+      "type": "table",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+      "datasource": { "type": "loki", "uid": "loki" },
+      "targets": [
+        { "expr": "{job=\"fluent-bit\"} |~ \"BLOCK|PAUSED|MALICIOUS|CRITICAL\" | json", "legendFormat": "" }
+      ]
+    },
+    {
+      "title": "Response Actions Log",
+      "type": "table",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+      "datasource": { "type": "loki", "uid": "loki" },
+      "targets": [
+        { "expr": "{job=\"fluent-bit\"} |~ \"incident-response|auto-action|pod-terminated\" | json", "legendFormat": "" }
+      ]
+    },
+    {
+      "title": "Session Risk Heatmap",
+      "type": "heatmap",
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 16 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        { "expr": "security_blocks_total", "legendFormat": "{{category}}" }
+      ]
+    }
+  ],
+  "refresh": "10s",
+  "schemaVersion": 39,
+  "tags": ["incidents", "security", "devfactory"],
+  "time": { "from": "now-6h", "to": "now" },
+  "title": "DevFactory Incidents",
+  "uid": "devfactory-incidents",
+  "version": 1
+}

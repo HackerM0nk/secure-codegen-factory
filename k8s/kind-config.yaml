@@ -1,0 +1,48 @@
+# Kind cluster config — Cilium CNI (no default kindnet)
+# GKE Dataplane V2 (Cilium) architecture
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+networking:
+  disableDefaultCNI: true   # Cilium will be installed post-creation
+  podSubnet: "10.244.0.0/16"
+  serviceSubnet: "10.96.0.0/12"
+nodes:
+  - role: control-plane
+    kubeadmConfigPatches:
+      - |
+        kind: InitConfiguration
+        nodeRegistration:
+          kubeletExtraArgs:
+            node-labels: "ingress-ready=true"
+    extraPortMappings:
+      # Traefik ingress
+      - containerPort: 30080
+        hostPort: 30080
+        protocol: TCP
+      # Prometheus
+      - containerPort: 30090
+        hostPort: 30090
+        protocol: TCP
+      # Jaeger UI
+      - containerPort: 30686
+        hostPort: 30686
+        protocol: TCP
+      # Grafana
+      - containerPort: 30300
+        hostPort: 30300
+        protocol: TCP
+      # Hubble UI
+      - containerPort: 30480
+        hostPort: 30480
+        protocol: TCP
+      # Hubble Relay (gRPC)
+      - containerPort: 30481
+        hostPort: 30481
+        protocol: TCP
+  - role: worker
+    kubeadmConfigPatches:
+      - |
+        kind: JoinConfiguration
+        nodeRegistration:
+          kubeletExtraArgs:
+            node-labels: "workload=workspace"

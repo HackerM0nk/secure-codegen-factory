@@ -1,0 +1,27 @@
+# ClusterIP Service per workspace pod — template substituted at runtime
+apiVersion: v1
+kind: Service
+metadata:
+  name: "ws-${WORKSPACE_ID}"
+  namespace: devfactory-workspaces
+  labels:
+    app: workspace
+    project-id: "${PROJECT_ID}"
+    workspace-id: "${WORKSPACE_ID}"
+spec:
+  type: ClusterIP
+  selector:
+    workspace-id: "${WORKSPACE_ID}"
+  ports:
+    - name: preview
+      port: 3000
+      targetPort: 3000
+      protocol: TCP
+    - name: terminal
+      port: 8080
+      targetPort: 8080
+      protocol: TCP
+    - name: sidecar
+      port: 9090
+      targetPort: 9090
+      protocol: TCP
