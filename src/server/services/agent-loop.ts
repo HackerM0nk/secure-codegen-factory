@@ -89,7 +89,7 @@ export interface AgentEvent {
 
 // ── Agent loop ────────────────────────────────────────────────────────────
 
-const MAX_ITERATIONS = 30;
+const MAX_ITERATIONS = 50;
 
 export async function runAgentLoop(
   containerName: string,
