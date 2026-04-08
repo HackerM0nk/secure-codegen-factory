@@ -7,6 +7,7 @@ import { generateSbom, type SbomResult } from "./sbom-generator";
 import { scanForSecrets, type SecretScanResult } from "./secret-scanner";
 import { scanImage, type ImageScanResult } from "./image-scanner";
 import { execInWorkspace, readFileFromWorkspace } from "../services/workspace";
+import { metrics } from "../observability/metrics";
 
 // ── Types ─────────────────────────────────────────────────────────────
 
@@ -249,6 +250,29 @@ export async function scanWorkspace(
     lowFindings: low,
     totalFindings: critical + high + medium + low,
   };
+
+  // Record scan findings in Prometheus for alerting
+  try {
+    const tools = ["sast", "sca", "secrets", "image"] as const;
+    for (const tool of tools) {
+      const r = result[tool];
+      if (!r) continue;
+      const counts = tool === "sast" || tool === "secrets"
+        ? { critical: 0, high: 0, medium: 0, low: 0 }
+        : (r as any).summary || {};
+      if ("findings" in r) {
+        for (const f of (r as any).findings) {
+          metrics.scanFindingsTotal.inc({ tool, severity: f.severity });
+        }
+      } else if (counts) {
+        for (const [sev, count] of Object.entries(counts)) {
+          if (typeof count === "number" && count > 0) {
+            metrics.scanFindingsTotal.inc({ tool, severity: sev }, count);
+          }
+        }
+      }
+    }
+  } catch {}
 
   result.passed = critical === 0;
   result.verdict = critical > 0 ? "BLOCK" : (high > 0 ? "WARN" : "PASS");

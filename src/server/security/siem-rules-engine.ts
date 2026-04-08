@@ -253,7 +253,7 @@ export class SiemRulesEngine {
   }
 
   private async subscribeToStreams(): Promise<void> {
-    const streams = ["security", "workspace", "build", "llm", "agent", "billing"];
+    const streams = ["security", "workspace", "build", "llm", "agent", "billing", "deploy"];
     for (const stream of streams) {
       try {
         await this.eventBus.createGroup(stream, "siem-engine");

@@ -446,4 +446,20 @@ export async function restoreSnapshot(
   return { verified: !!expectedHash || !!response.Metadata?.["content-hash"], durationMs: Date.now() - start };
 }
 
+// ── Terminal credentials (K8s-native) ──────────────────────────────────
+// Reads TTYD_USER/TTYD_PASS from pod env vars instead of file (Docker approach)
+
+export async function getTerminalCredentials(containerName: string): Promise<{ user: string; pass: string }> {
+  const name = containerName;
+  try {
+    const { body: pod } = await coreApi.readNamespacedPod(name, NAMESPACE);
+    const workspace = (pod.spec?.containers || []).find((c) => c.name === "workspace");
+    const ttydUser = (workspace?.env || []).find((e) => e.name === "TTYD_USER")?.value || "workspace";
+    const ttydPass = (workspace?.env || []).find((e) => e.name === "TTYD_PASS")?.value || "";
+    return { user: ttydUser, pass: ttydPass };
+  } catch (err: any) {
+    throw new Error(`Failed to retrieve terminal credentials for ${name}: ${err.message}`);
+  }
+}
+
 export { validateWorkspacePath };

@@ -6,6 +6,7 @@ import type { LLMRouter, RoutingContext } from "../llm/router";
 import type { EventBus } from "../events/event-bus";
 import { getModelForComplexity } from "../llm/complexity-classifier";
 import { createLogger } from "../observability/logger";
+import { metrics } from "../observability/metrics";
 
 const logger = createLogger("behavioral-detector");
 
@@ -204,6 +205,9 @@ export class BehavioralDetector {
         .join("");
 
       const analysis = this.parseResponse(responseText, sessionId, session.turns.length);
+
+      // Track all classifications in Prometheus (including NORMAL for distribution visibility)
+      try { metrics.behavioralDetectionsTotal.inc({ classification: analysis.classification }); } catch {}
 
       // Only emit security events for non-normal classifications.
       // NORMAL sessions should not generate SIEM-visible alerts — they add noise
