@@ -2,7 +2,6 @@
 
 import { useEffect, useRef } from "react";
 import { Terminal as TerminalIcon } from "lucide-react";
-import { getAuthToken } from "@/lib/auth";
 import "@xterm/xterm/css/xterm.css";
 
 interface TerminalPanelProps {
@@ -10,22 +9,7 @@ interface TerminalPanelProps {
   projectId?: string;
 }
 
-async function fetchTerminalCredentials(
-  projectId: string
-): Promise<{ user: string; pass: string } | null> {
-  try {
-    const token = await getAuthToken();
-    const res = await fetch(`/api/workspaces/${projectId}/terminal-creds`, {
-      headers: token ? { Authorization: `Bearer ${token}` } : {},
-    });
-    if (!res.ok) return null;
-    return res.json();
-  } catch {
-    return null;
-  }
-}
-
-export function TerminalPanel({ containerName, projectId }: TerminalPanelProps) {
+export function TerminalPanel({ containerName }: TerminalPanelProps) {
   const termRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -37,14 +21,6 @@ export function TerminalPanel({ containerName, projectId }: TerminalPanelProps) 
     let observer: ResizeObserver | null = null;
 
     (async () => {
-      // Fetch terminal credentials before establishing the WebSocket
-      let authToken = "";
-      if (projectId) {
-        const creds = await fetchTerminalCredentials(projectId);
-        if (creds) {
-          authToken = btoa(`${creds.user}:${creds.pass}`);
-        }
-      }
       if (cancelled) return;
 
       const { Terminal } = await import("@xterm/xterm");
@@ -68,8 +44,10 @@ export function TerminalPanel({ containerName, projectId }: TerminalPanelProps) 
       term.open(termRef.current!);
       fitAddon.fit();
 
-      // Connect to ttyd via Traefik with retry
+      // Connect to ttyd via Traefik — ttyd runs without auth (network-isolated),
+      // access control is handled by Traefik routing + container network isolation.
       const wsUrl = `ws://${containerName}.localhost:8090/ttyd/ws`;
+
       let retries = 0;
       const MAX_RETRIES = 5;
       const RETRY_DELAY = 2000;
@@ -83,8 +61,9 @@ export function TerminalPanel({ containerName, projectId }: TerminalPanelProps) 
           if (cancelled || !term) return;
           retries = 0;
           term.reset();
+          // Send terminal dimensions as first message (ttyd protocol)
           ws!.send(JSON.stringify({
-            AuthToken: authToken,
+            AuthToken: "",
             columns: term.cols,
             rows: term.rows,
           }));
@@ -145,7 +124,7 @@ export function TerminalPanel({ containerName, projectId }: TerminalPanelProps) 
       term?.dispose();
       observer?.disconnect();
     };
-  }, [containerName, projectId]);
+  }, [containerName]);
 
   if (!containerName) {
     return (

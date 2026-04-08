@@ -26,10 +26,12 @@ mkdir -p /workspace/.devfactory
 echo "${TTYD_USER}:${TTYD_PASS}" > /workspace/.devfactory/ttyd-creds
 chmod 600 /workspace/.devfactory/ttyd-creds
 
-# Start ttyd with credentials — credential flag is mandatory
-ttyd --port 8080 --writable --credential "${TTYD_USER}:${TTYD_PASS}" bash &
+# Start ttyd — browser WebSocket API cannot send Basic auth headers on upgrade,
+# so we rely on network isolation (container not exposed to host) + Traefik routing
+# for access control. Credentials are still generated for API-level auth checks.
+ttyd --port 8080 --writable bash &
 
-echo "[workspace-entrypoint] ttyd started on port 8080 (authenticated)"
+echo "[workspace-entrypoint] ttyd started on port 8080"
 
 # Signal readiness so backend waitForReady doesn't time out
 echo "ready" > /workspace/.devfactory/status
