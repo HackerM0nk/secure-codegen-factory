@@ -68,42 +68,58 @@ export function TerminalPanel({ containerName, projectId }: TerminalPanelProps) 
       term.open(termRef.current!);
       fitAddon.fit();
 
-      // Connect to ttyd via Traefik
+      // Connect to ttyd via Traefik with retry
       const wsUrl = `ws://${containerName}.localhost:8090/ttyd/ws`;
-      ws = new WebSocket(wsUrl, ["tty"]);
-      ws.binaryType = "arraybuffer";
+      let retries = 0;
+      const MAX_RETRIES = 5;
+      const RETRY_DELAY = 2000;
 
-      ws.onopen = () => {
+      function connect() {
         if (cancelled || !term) return;
-        term.reset();
-        ws!.send(JSON.stringify({
-          AuthToken: authToken,
-          columns: term.cols,
-          rows: term.rows,
-        }));
-      };
+        ws = new WebSocket(wsUrl, ["tty"]);
+        ws.binaryType = "arraybuffer";
 
-      ws.onmessage = (event) => {
-        if (cancelled || !term) return;
-        const data = event.data;
-        if (data instanceof ArrayBuffer) {
-          const arr = new Uint8Array(data);
-          if (arr.length < 2) return;
-          if (arr[0] === 48) term.write(arr.slice(1));
-        } else if (typeof data === "string" && data.length > 1) {
-          if (data.charCodeAt(0) === 48) term.write(data.slice(1));
-        }
-      };
+        ws.onopen = () => {
+          if (cancelled || !term) return;
+          retries = 0;
+          term.reset();
+          ws!.send(JSON.stringify({
+            AuthToken: authToken,
+            columns: term.cols,
+            rows: term.rows,
+          }));
+        };
 
-      ws.onerror = () => {
-        if (cancelled || !term) return;
-        term.writeln("\r\n[Terminal connection error - ttyd may not be running yet]");
-      };
+        ws.onmessage = (event) => {
+          if (cancelled || !term) return;
+          const data = event.data;
+          if (data instanceof ArrayBuffer) {
+            const arr = new Uint8Array(data);
+            if (arr.length < 2) return;
+            if (arr[0] === 48) term.write(arr.slice(1));
+          } else if (typeof data === "string" && data.length > 1) {
+            if (data.charCodeAt(0) === 48) term.write(data.slice(1));
+          }
+        };
 
-      ws.onclose = () => {
-        if (cancelled || !term) return;
-        term.writeln("\r\n[Terminal disconnected]");
-      };
+        ws.onerror = () => {
+          // Errors are followed by onclose — retry happens there
+        };
+
+        ws.onclose = () => {
+          if (cancelled || !term) return;
+          if (retries < MAX_RETRIES) {
+            retries++;
+            term.writeln(`\r\n[Connecting to terminal... attempt ${retries}/${MAX_RETRIES}]`);
+            setTimeout(connect, RETRY_DELAY);
+          } else {
+            term.writeln("\r\n[Terminal disconnected — could not connect after 5 attempts]");
+            term.writeln("[Try stopping and restarting the workspace]");
+          }
+        };
+      }
+
+      connect();
 
       term.onData((input) => {
         if (ws?.readyState === WebSocket.OPEN) {

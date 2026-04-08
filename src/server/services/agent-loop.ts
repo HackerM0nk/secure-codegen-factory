@@ -415,12 +415,16 @@ export async function runAgentLoop(
               let toolResult: string;
               switch (name) {
                 case "file_write": {
-                  await writeFileToWorkspace(containerName, inp.path, inp.content);
-                  toolResult = `Written: ${inp.path} (${inp.content.length} bytes)`;
+                  if (!inp.path || typeof inp.path !== "string") {
+                    throw new Error("file_write requires a 'path' argument (e.g. /workspace/src/App.tsx)");
+                  }
+                  const content = inp.content ?? "";
+                  await writeFileToWorkspace(containerName, inp.path, content);
+                  toolResult = `Written: ${inp.path} (${content.length} bytes)`;
                   // Post-write AST validation
                   if (context.validationPipeline) {
                     const astResult = await context.validationPipeline.runPostFileWrite(
-                      containerName, inp.path, inp.content
+                      containerName, inp.path, content
                     );
                     if (!astResult.valid) {
                       const errSummary = astResult.errors.slice(0, 3)
@@ -432,12 +436,18 @@ export async function runAgentLoop(
                   break;
                 }
                 case "file_read":
+                  if (!inp.path || typeof inp.path !== "string") {
+                    throw new Error("file_read requires a 'path' argument (e.g. /workspace/src/App.tsx)");
+                  }
                   toolResult = await readFileFromWorkspace(containerName, inp.path);
                   break;
                 case "file_list":
                   toolResult = await listFilesInWorkspace(containerName, inp.path || "/workspace");
                   break;
                 case "shell_exec": {
+                  if (!inp.command || typeof inp.command !== "string") {
+                    throw new Error("shell_exec requires a 'command' argument (e.g. 'npm install')");
+                  }
                   const execResult = await execInWorkspace(containerName, inp.command);
                   toolResult = execResult.stdout;
                   if (execResult.stderr) toolResult += `\nSTDERR: ${execResult.stderr}`;
